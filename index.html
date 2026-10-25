@@ -2023,6 +2023,108 @@ render();
 </script>
 <!-- Sports AI v0.9 END -->
 
+
+<!-- Sports AI v0.9.1 START -->
+<style>
+.pick-v8 .v9-team{
+ display:flex;
+ align-items:center;
+ gap:10px;
+ font-weight:700;
+}
+.pick-v8 .v9-team img{
+ width:43px;
+ height:43px;
+ object-fit:contain;
+ flex-shrink:0;
+}
+.pick-v8 .v9-grid{
+ grid-template-columns:1.35fr 1fr 1fr;
+ gap:7px;
+}
+.pick-v8 .v9-value{
+ overflow-wrap:anywhere;
+}
+</style>
+<script>
+(function(){
+const oldCard=card;
+
+card=function(e){
+ const html=oldCard(e);
+ if(!html)return html;
+
+ const root=document.createElement("div");
+ root.innerHTML=html;
+
+ const pick=root.querySelector(".pick-v8");
+ if(!pick)return html;
+
+ const grid=pick.querySelector(".v9-grid");
+ if(!grid)return html;
+
+ const cells=grid.children;
+ if(cells.length<9)return html;
+
+ const comps=e.competitions?.[0]?.competitors||[];
+ const away=comps.find(x=>x.homeAway==="away");
+ const home=comps.find(x=>x.homeAway==="home");
+ if(!away||!home)return html;
+
+ function setTeam(cell,comp){
+  const team=comp.team||{};
+  cell.textContent="";
+  cell.classList.add("v9-team");
+
+  const logo=team.logo||team.logos?.[0]?.href;
+  if(logo){
+   const img=document.createElement("img");
+   img.src=logo;
+   img.alt="球隊標誌";
+   img.loading="lazy";
+   cell.appendChild(img);
+  }
+
+  const name=document.createElement("span");
+  name.textContent=nameTW(comp);
+  cell.appendChild(name);
+ }
+
+ setTeam(cells[3],away);
+ setTeam(cells[6],home);
+
+ // 只有盤口確定對應球隊時才顯示雙邊讓分
+ const lineText=cells[5].textContent.trim();
+ const m=lineText.match(
+  /^([A-Z]+)\s*([+-]\d+(?:\.\d+)?)$/
+ );
+
+ if(m){
+  const code=m[1];
+  const points=Number(m[2]);
+  const awayCode=away.team?.abbreviation;
+  const homeCode=home.team?.abbreviation;
+
+  if(code===awayCode||code===homeCode){
+   const opposite=-points;
+   const sign=n=>n>0?"+"+n:String(n);
+
+   cells[5].textContent=
+    code===awayCode?sign(points):sign(opposite);
+
+   cells[8].textContent=
+    code===homeCode?sign(points):sign(opposite);
+  }
+ }
+
+ return root.innerHTML;
+};
+
+render();
+})();
+</script>
+<!-- Sports AI v0.9.1 END -->
+
   
 </body>
 </html>
