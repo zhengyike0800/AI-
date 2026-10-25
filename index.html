@@ -1989,27 +1989,29 @@ btn.onclick=async()=>{
     teamName(h):teamName(a);
 
    
-const edge=Math.abs(model.home-0.5);
-const probability=Math.max(
- model.home,model.away
-);
 
-if(edge<0.05){
+const probability=Math.max(model.home,model.away);
+const pct=(probability*100).toFixed(1);
+
+if(probability<0.55){
  message=
-  "讓分預測接近五五波，建議觀望。";
-}else if(edge<0.10){
+  "讓分分析：雙方接近五五波。"+
+  "模型信心不足，建議觀望。";
+}else if(probability<0.60){
  message=
-  "模型較偏向"+team+
-  "，估算勝率"+
-  (probability*100).toFixed(1)+"%。"+
-  "但優勢不明確，建議觀望。";
+  "讓分分析：模型偏向"+team+"。"+
+  "預測過盤機率 "+pct+"%。"+
+  "信心有限，列為觀察場次。";
 }else{
  message=
-  "模型明顯偏向"+team+
-  "，估算過盤機率"+
-  (probability*100).toFixed(1)+"%。"+
-  "列為優先研究場次；"+
-  "尚未通過歷史驗證，不等於建議下注。";
+  "讓分分析：模型明顯偏向"+team+"。"+
+  "預測過盤機率 "+pct+"%。"+
+  "列為優先研究場次。";
+}
+
+message+=" 目前機率尚未完成歷史校準，"+
+ "以上分類不代表已具備可獲利的投注優勢。";
+
 }
 
   }
