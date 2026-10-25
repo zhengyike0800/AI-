@@ -429,5 +429,203 @@ setInterval(()=>{
 if(!document.hidden)load();
 },300000);
 </script>
+  
+<!-- Sports AI v0.4 勝率分析擴充 -->
+<style>
+.analysis-v4{
+ margin-top:14px;
+ padding:14px;
+ border:1px solid #553047;
+ border-radius:13px;
+ background:#1b2032;
+}
+.analysis-v4 h4{
+ margin:0 0 10px;
+ color:#ff657e;
+ font-size:15px;
+}
+.prob-bar{
+ display:flex;
+ height:10px;
+ overflow:hidden;
+ border-radius:20px;
+ background:#344052;
+ margin:11px 0;
+}
+.prob-away{background:#ff3655}
+.prob-home{background:#64748b}
+.prob-values{
+ display:flex;
+ justify-content:space-between;
+ font-weight:bold;
+ font-size:17px;
+}
+.prob-note{
+ color:#aebbd0;
+ font-size:11px;
+ line-height:1.7;
+ margin-top:10px;
+}
+.ev-button{
+ width:100%;
+ background:#512137;
+ color:#ffcad3;
+ margin-top:12px;
+}
+</style>
+
+<script>
+(function(){
+"use strict";
+
+function recordOf(x){
+ const text=x?.records?.[0]?.summary||"";
+ const m=/^(\d+)-(\d+)$/.exec(text);
+ if(!m)return null;
+
+ const w=Number(m[1]);
+ const l=Number(m[2]);
+ return {w,l,n:w+l};
+}
+
+function calculate(e){
+ if(e.status?.type?.state!=="pre")return null;
+
+ const teams=e.competitions?.[0]?.competitors||[];
+ const away=teams.find(x=>x.homeAway==="away");
+ const home=teams.find(x=>x.homeAway==="home");
+
+ if(!away||!home)return null;
+
+ const a=recordOf(away);
+ const h=recordOf(home);
+
+ if(!a||!h||a.n<5||h.n<5)return null;
+
+ // 貝氏平滑：避免開季少量戰績過度影響結果
+ const ap=(a.w+5)/(a.n+10);
+ const hp=(h.w+5)/(h.n+10);
+
+ // 教學模型：戰績差異＋主場修正 2.5 個百分點
+ const homeP=Math.max(.35,Math.min(.65,
+   .5+(hp-ap)*.9+.025
+ ));
+ const awayP=1-homeP;
+
+ return {
+  away:awayP,
+  home:homeP,
+  awayName:nameTW(away),
+  homeName:nameTW(home),
+  a,h
+ };
+}
+
+function percent(x){
+ return (x*100).toFixed(1)+"%";
+}
+
+const previousCard=card;
+
+card=function(e){
+ let html=previousCard(e);
+ if(!html)return html;
+
+ let result=calculate(e);
+ let section="";
+
+ if(e.status?.type?.state!=="pre"){
+  section=`
+  <div class="analysis-v4">
+   <h4>歷史賽事</h4>
+   <div class="prob-note">
+   比賽已開始或結束，不使用賽後戰績倒推賽前預測。
+   </div>
+  </div>`;
+ }else if(!result){
+  section=`
+  <div class="analysis-v4">
+   <h4>勝率資料不足</h4>
+   <div class="prob-note">
+   雙方需各有至少 5 場已完成的戰績，
+   才啟用 v0.4 試算模型。
+   </div>
+  </div>`;
+ }else{
+  const r=result;
+  section=`
+  <div class="analysis-v4">
+   <h4>v0.4 戰績模型試算</h4>
+   <div class="prob-values">
+    <span>${percent(r.away)}</span>
+    <span>${percent(r.home)}</span>
+   </div>
+   <div class="prob-bar">
+    <div class="prob-away" style="width:${percent(r.away)}"></div>
+    <div class="prob-home" style="width:${percent(r.home)}"></div>
+   </div>
+   <div class="prob-note">
+   ${r.awayName}：${r.a.w} 勝 ${r.a.l} 敗<br>
+   ${r.homeName}：${r.h.w} 勝 ${r.h.l} 敗<br>
+   簡易模型包含戰績平滑及固定主場修正，
+   未納入傷兵、球員效率和對手強度。
+   </div>
+   <button class="ev-button" data-ev="${e.id}">
+    試算十進位賠率 EV
+   </button>
+  </div>`;
+ }
+
+ return html.replace("</article>",section+"</article>");
+};
+
+const previousRender=render;
+
+render=function(){
+ previousRender();
+};
+
+document.getElementById("games").addEventListener("click",function(event){
+ const btn=event.target.closest("[data-ev]");
+ if(!btn)return;
+
+ const e=games.find(x=>x.id===btn.dataset.ev);
+ if(!e)return;
+
+ const r=calculate(e);
+ if(!r)return;
+
+ const side=prompt(
+  "選擇分析對象：輸入 1 為客隊，2 為主隊"
+ );
+ if(side!=="1"&&side!=="2")return;
+
+ const oddsText=prompt("輸入十進位賠率，例如 1.85");
+ if(oddsText===null)return;
+
+ const odds=Number(oddsText);
+ if(!Number.isFinite(odds)||odds<=1){
+  alert("請輸入大於 1 的有效十進位賠率");
+  return;
+ }
+
+ const p=side==="1"?r.away:r.home;
+ const ev=(p*odds-1)*100;
+ const breakEven=100/odds;
+
+ alert(
+  "模型試算勝率："+percent(p)+
+  "\n賠率："+odds.toFixed(2)+
+  "\n損益兩平勝率："+breakEven.toFixed(1)+"%"+
+  "\n理論 EV："+ev.toFixed(2)+"%"+
+  "\n\n注意：模型尚未驗證，EV 不代表真實獲利優勢。"
+ );
+});
+
+render();
+})();
+</script>
+<!-- Sports AI v0.4 END -->
+
 </body>
 </html>
