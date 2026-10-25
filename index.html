@@ -1829,5 +1829,200 @@ render();
 <!-- Sports AI v0.8.2 END -->
 
 
+<!-- Sports AI v0.9 真實資料優先 -->
+<style>
+.pick-v8 .head{
+ background:linear-gradient(90deg,#ed3655,#ae193b);
+}
+.pick-v8 .real-v9{
+ padding:14px;
+}
+.pick-v8 .v9-grid{
+ display:grid;
+ grid-template-columns:1.3fr 1fr 1fr;
+ align-items:center;
+ gap:8px;
+ margin:13px 0;
+}
+.pick-v8 .v9-grid>div{
+ min-width:0;
+ font-size:13px;
+}
+.pick-v8 .v9-value{
+ background:#1c2a42;
+ padding:11px 5px;
+ text-align:center;
+ border-radius:9px;
+}
+.pick-v8 .v9-reason{
+ background:#19243a;
+ border:1px solid #493445;
+ padding:13px;
+ border-radius:12px;
+ font-size:13px;
+ line-height:1.8;
+ margin-top:14px;
+}
+.pick-v8 .v9-note{
+ color:#a9b6ca;
+ font-size:11px;
+ line-height:1.7;
+ margin-top:12px;
+}
+</style>
+
+<script>
+(function(){
+"use strict";
+
+const originalV9=card;
+
+function pctFromAmerican(v){
+ const n=Number(v);
+ if(!Number.isFinite(n)||n===0)return null;
+ return n>0?100/(n+100):(-n)/((-n)+100);
+}
+
+function normalizeMarket(a,h){
+ const pa=pctFromAmerican(a);
+ const ph=pctFromAmerican(h);
+ if(pa===null||ph===null)return null;
+ const sum=pa+ph;
+ if(sum<=0)return null;
+ return {
+  away:pa/sum,
+  home:ph/sum
+ };
+}
+
+function oddsData(e){
+ const competition=e.competitions?.[0];
+ const o=competition?.odds?.[0];
+ if(!o)return null;
+
+ const awayML=o.awayTeamOdds?.moneyLine;
+ const homeML=o.homeTeamOdds?.moneyLine;
+ const market=normalizeMarket(awayML,homeML);
+
+ const spread=typeof o.details==="string"
+  ?o.details:"";
+
+ return {
+  market,
+  spread,
+  provider:o.provider?.name||"ESPN 資料"
+ };
+}
+
+function escapeV9(s){
+ return String(s??"").replace(/[&<>"']/g,c=>({
+  "&":"&amp;",
+  "<":"&lt;",
+  ">":"&gt;",
+  '"':"&quot;",
+  "'":"&#39;"
+ }[c]));
+}
+
+function teamNameV9(x){
+ return typeof nameTW==="function"
+  ?nameTW(x)
+  :(x.team?.displayName||"未知隊伍");
+}
+
+card=function(e){
+ const html=originalV9(e);
+ if(!html)return html;
+
+ const root=document.createElement("div");
+ root.innerHTML=html;
+
+ const pick=root.querySelector(".pick-v8");
+ if(!pick)return html;
+
+ const competition=e.competitions?.[0];
+ const teams=competition?.competitors||[];
+ const a=teams.find(x=>x.homeAway==="away");
+ const h=teams.find(x=>x.homeAway==="home");
+
+ if(!a||!h)return html;
+
+ const away=escapeV9(teamNameV9(a));
+ const home=escapeV9(teamNameV9(h));
+ const oa=oddsData(e);
+
+ const market=oa?.market;
+
+ const awayPct=market
+  ?(market.away*100).toFixed(1)+"%"
+  :"—";
+
+ const homePct=market
+  ?(market.home*100).toFixed(1)+"%"
+  :"—";
+
+ const spread=oa?.spread
+  ?escapeV9(oa.spread)
+  :"待取得";
+
+ const source=oa
+  ?escapeV9(oa.provider)
+  :"目前無盤口資料";
+
+ const time=typeof fmt==="function"
+  ?fmt(e.date)
+  :new Date(e.date).toLocaleString("zh-TW");
+
+ pick.innerHTML=`
+ <div class="head">
+  NBA 賽前分析｜真實資料
+ </div>
+ <div class="real-v9">
+  <div class="league">${escapeV9(time)} · NBA</div>
+
+  <div class="v9-grid">
+   <div>隊伍</div>
+   <div>獨贏市場機率</div>
+   <div>讓分</div>
+
+   <div><strong>${away}</strong><br><small>客隊</small></div>
+   <div class="v9-value">${awayPct}</div>
+   <div class="v9-value">${spread}</div>
+
+   <div><strong>${home}</strong><br><small>主隊</small></div>
+   <div class="v9-value">${homePct}</div>
+   <div class="v9-value">過盤率待分析</div>
+  </div>
+
+  <div class="v9-reason">
+   <strong style="color:#ff8196">賽前分析摘要</strong>
+   <div style="margin-top:8px">
+    已取得賽程及歷史戰績。
+    ${market
+      ?"已取得雙方獨贏報價，可供比較市場預期。"
+      :"目前尚未取得可驗證的雙方獨贏報價。"}
+    主力傷兵與預計先發仍待核實，
+    暫不提供正式勝率及推薦方向。
+   </div>
+  </div>
+
+  <div class="v9-note">
+   資料來源：${source}<br>
+   獨贏數字若存在，是去除水位後的市場隱含機率，
+   並非 AI 模型預測。<br>
+   盤口更新時間尚未驗證。
+   傷兵資訊未確認前，維持觀望。
+  </div>
+ </div>`;
+
+ return root.innerHTML;
+};
+
+render();
+})();
+</script>
+<!-- Sports AI v0.9 END -->
+
+  
 </body>
 </html>
