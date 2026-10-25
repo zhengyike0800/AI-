@@ -729,5 +729,302 @@ setInterval(()=>{
  if(!document.hidden)load();
 },300000);
 </script>
+
+<script>
+<script>
+/* Sports AI v1.4 - Data Model Update */
+(function(){
+
+function numberStat(stats,names){
+ const item=(stats||[]).find(x=>{
+  const a=String(x.name||"")
+   .toLowerCase().replace(/[^a-z0-9]/g,"");
+  const b=String(x.abbreviation||"")
+   .toLowerCase().replace(/[^a-z0-9]/g,"");
+  return names.includes(a)||names.includes(b);
+ });
+
+ if(!item)return null;
+
+ const n=Number(item.value??item.displayValue);
+ return Number.isFinite(n)?n:null;
+}
+
+function recentRecord(stats){
+ const item=(stats||[]).find(x=>{
+  const text=(
+   String(x.name||"")+" "+
+   String(x.abbreviation||"")
+  ).toLowerCase().replace(/[^a-z0-9]/g,"");
+
+  return text.includes("lasttengames")||
+   text==="l10"||
+   text.includes("lastten");
+ });
+
+ if(!item)return null;
+
+ const value=String(item.displayValue||"");
+ const match=value.match(/(\d+)\s*-\s*(\d+)/);
+
+ if(!match)return null;
+
+ const w=Number(match[1]);
+ const l=Number(match[2]);
+ const n=w+l;
+
+ if(n<5||n>10)return null;
+ return {w,l,n,p:w/n};
+}
+
+// 使用明確的場均得失分或總得失分。
+// 不把未知單位的 differential 當作總分差。
+parseTable=function(data){
+ const output=new Map();
+
+ function walk(node){
+  if(!node||typeof node!=="object")return;
+
+  if(Array.isArray(node)){
+   node.forEach(walk);
+   return;
+  }
+
+  for(const entry of node.entries||[]){
+   const team=entry.team||{};
+   const stats=entry.stats||[];
+
+   const w=numberStat(stats,["wins","w"]);
+   const l=numberStat(stats,["losses","l"]);
+
+   if(!team.id||w===null||l===null)continue;
+
+   const n=w+l;
+
+   const avgFor=numberStat(stats,[
+    "avgpointsfor"
+   ]);
+
+   const avgAgainst=numberStat(stats,[
+    "avgpointsagainst"
+   ]);
+
+   const totalFor=numberStat(stats,[
+    "pointsfor"
+   ]);
+
+   const totalAgainst=numberStat(stats,[
+    "pointsagainst"
+   ]);
+
+   let margin=null;
+
+   if(avgFor!==null&&avgAgainst!==null){
+    margin=avgFor-avgAgainst;
+   }else if(
+    n>0&&totalFor!==null&&
+    totalAgainst!==null
+   ){
+    margin=(totalFor-totalAgainst)/n;
+   }
+
+   output.set(String(team.id),{
+    w,l,n,
+    p:n?w/n:0.5,
+    margin,
+    recent:recentRecord(stats)
+   });
+  }
+
+  if(node.children)walk(node.children);
+  if(node.standings)walk(node.standings);
+ }
+
+ walk(data);
+ return output;
+};
+
+// 獨贏模型加入最近十場戰績。
+// 係數仍屬研究假設，尚未完成校準。
+winModel=function(a,h){
+ const ap=record(a,prevData);
+ const hp=record(h,prevData);
+
+ if(!ap||!hp||ap.n<20||hp.n<20)
+  return null;
+
+ const ac=record(a,nowData);
+ const hc=record(h,nowData);
+
+ const away=blend(ap,ac,"p");
+ const home=blend(hp,hc,"p");
+
+ let logit=2.4*(home-away)+0.12;
+
+ if(ac?.recent&&hc?.recent){
+  logit+=0.5*(
+   hc.recent.p-ac.recent.p
+  );
+ }
+
+ const p=1/(1+Math.exp(-logit));
+
+ return {
+  home:p,
+  away:1-p
+ };
+};
+
+})();
+</script>
+
+<script>
+/* Sports AI v1.4 - Data Model Update */
+(function(){
+
+function numberStat(stats,names){
+ const item=(stats||[]).find(x=>{
+  const a=String(x.name||"")
+   .toLowerCase().replace(/[^a-z0-9]/g,"");
+  const b=String(x.abbreviation||"")
+   .toLowerCase().replace(/[^a-z0-9]/g,"");
+  return names.includes(a)||names.includes(b);
+ });
+
+ if(!item)return null;
+
+ const n=Number(item.value??item.displayValue);
+ return Number.isFinite(n)?n:null;
+}
+
+function recentRecord(stats){
+ const item=(stats||[]).find(x=>{
+  const text=(
+   String(x.name||"")+" "+
+   String(x.abbreviation||"")
+  ).toLowerCase().replace(/[^a-z0-9]/g,"");
+
+  return text.includes("lasttengames")||
+   text==="l10"||
+   text.includes("lastten");
+ });
+
+ if(!item)return null;
+
+ const value=String(item.displayValue||"");
+ const match=value.match(/(\d+)\s*-\s*(\d+)/);
+
+ if(!match)return null;
+
+ const w=Number(match[1]);
+ const l=Number(match[2]);
+ const n=w+l;
+
+ if(n<5||n>10)return null;
+ return {w,l,n,p:w/n};
+}
+
+// 使用明確的場均得失分或總得失分。
+// 不把未知單位的 differential 當作總分差。
+parseTable=function(data){
+ const output=new Map();
+
+ function walk(node){
+  if(!node||typeof node!=="object")return;
+
+  if(Array.isArray(node)){
+   node.forEach(walk);
+   return;
+  }
+
+  for(const entry of node.entries||[]){
+   const team=entry.team||{};
+   const stats=entry.stats||[];
+
+   const w=numberStat(stats,["wins","w"]);
+   const l=numberStat(stats,["losses","l"]);
+
+   if(!team.id||w===null||l===null)continue;
+
+   const n=w+l;
+
+   const avgFor=numberStat(stats,[
+    "avgpointsfor"
+   ]);
+
+   const avgAgainst=numberStat(stats,[
+    "avgpointsagainst"
+   ]);
+
+   const totalFor=numberStat(stats,[
+    "pointsfor"
+   ]);
+
+   const totalAgainst=numberStat(stats,[
+    "pointsagainst"
+   ]);
+
+   let margin=null;
+
+   if(avgFor!==null&&avgAgainst!==null){
+    margin=avgFor-avgAgainst;
+   }else if(
+    n>0&&totalFor!==null&&
+    totalAgainst!==null
+   ){
+    margin=(totalFor-totalAgainst)/n;
+   }
+
+   output.set(String(team.id),{
+    w,l,n,
+    p:n?w/n:0.5,
+    margin,
+    recent:recentRecord(stats)
+   });
+  }
+
+  if(node.children)walk(node.children);
+  if(node.standings)walk(node.standings);
+ }
+
+ walk(data);
+ return output;
+};
+
+// 獨贏模型加入最近十場戰績。
+// 係數仍屬研究假設，尚未完成校準。
+winModel=function(a,h){
+ const ap=record(a,prevData);
+ const hp=record(h,prevData);
+
+ if(!ap||!hp||ap.n<20||hp.n<20)
+  return null;
+
+ const ac=record(a,nowData);
+ const hc=record(h,nowData);
+
+ const away=blend(ap,ac,"p");
+ const home=blend(hp,hc,"p");
+
+ let logit=2.4*(home-away)+0.12;
+
+ if(ac?.recent&&hc?.recent){
+  logit+=0.5*(
+   hc.recent.p-ac.recent.p
+  );
+ }
+
+ const p=1/(1+Math.exp(-logit));
+
+ return {
+  home:p,
+  away:1-p
+ };
+};
+
+})();
+</script>
+
+ 
 </body>
 </html>
