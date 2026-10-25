@@ -1345,5 +1345,337 @@ loadEloV7();
 </script>
 <!-- Sports AI v0.7 END -->
 
+  <!-- Sports AI v0.8 START -->
+<style>
+.pick-v8{
+  margin-top:14px;
+  border:1px solid #5a3242;
+  border-radius:16px;
+  background:linear-gradient(180deg,#101a2d 0%,#0d1527 100%);
+  overflow:hidden;
+}
+.pick-v8 .head{
+  padding:12px 14px;
+  background:linear-gradient(90deg,#ff4d6d,#ff3655);
+  color:#fff;
+  font-weight:800;
+  font-size:15px;
+}
+.pick-v8 .body{
+  padding:14px;
+}
+.pick-v8 .league{
+  color:#9eb0c8;
+  font-size:12px;
+  margin-bottom:10px;
+}
+.pick-v8 .grid{
+  display:grid;
+  grid-template-columns:1.3fr .8fr .8fr .8fr;
+  gap:8px;
+  align-items:center;
+}
+.pick-v8 .th{
+  color:#8fa3bc;
+  font-size:12px;
+  padding:0 4px 6px;
+}
+.pick-v8 .team-row{
+  display:contents;
+}
+.pick-v8 .team-name{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:14px;
+  font-weight:700;
+  color:#fff;
+  padding:8px 4px;
+}
+.pick-v8 .team-name img{
+  width:26px;
+  height:26px;
+  object-fit:contain;
+}
+.pick-v8 .cell{
+  text-align:center;
+  padding:8px 6px;
+  color:#fff;
+  font-size:14px;
+  background:#1a2741;
+  border-radius:10px;
+}
+.pick-v8 .tag{
+  display:inline-block;
+  min-width:58px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#ff4d6d,#ff3655);
+  color:#fff;
+  font-weight:800;
+  font-size:14px;
+}
+.pick-v8 .tag.alt{
+  background:#1fd0a5;
+  color:#06231f;
+}
+.pick-v8 .split{
+  height:1px;
+  background:#253450;
+  margin:12px 0;
+}
+.pick-v8 .winline{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:6px;
+}
+.pick-v8 .pill{
+  background:#17243b;
+  border-radius:12px;
+  padding:10px 12px;
+}
+.pick-v8 .pill small{
+  display:block;
+  color:#91a4be;
+  font-size:11px;
+  margin-bottom:6px;
+}
+.pick-v8 .pill strong{
+  font-size:22px;
+  color:#fff;
+}
+.pick-v8 .summary{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid #3f2a35;
+  border-radius:12px;
+  background:#121c30;
+}
+.pick-v8 .summary h4{
+  margin:0 0 8px;
+  color:#ff8ca0;
+  font-size:14px;
+}
+.pick-v8 .summary p{
+  margin:0;
+  color:#cbd6e6;
+  font-size:13px;
+  line-height:1.7;
+}
+.pick-v8 .note{
+  margin-top:10px;
+  font-size:11px;
+  color:#889ab2;
+  line-height:1.7;
+}
+</style>
+
+<script>
+(function(){
+"use strict";
+
+const previousCardV8 = card;
+
+function clampV8(v,min,max){
+  return Math.max(min,Math.min(max,v));
+}
+
+function parseRecordV8(comp){
+  const list = comp.records || [];
+  const target =
+    list.find(r =>
+      /overall|總|總戰績|戰績/i.test((r.name||"") + " " + (r.type||""))
+    ) || list[0];
+
+  const text = target?.summary || "0-0";
+  const m = text.match(/(\d+)-(\d+)/);
+  const w = m ? Number(m[1]) : 0;
+  const l = m ? Number(m[2]) : 0;
+  const total = w + l;
+
+  return {
+    w,l,total,
+    pct: total ? w / total : 0.5
+  };
+}
+
+function moneylineModelV8(awayRec, homeRec){
+  const awayBase = awayRec.pct;
+  const homeBase = homeRec.pct;
+
+  // 客主差 + 主場修正
+  let homeP = 0.5 + (homeBase - awayBase) * 0.72 + 0.04;
+  homeP = clampV8(homeP, 0.18, 0.82);
+
+  return {
+    home: homeP,
+    away: 1 - homeP
+  };
+}
+
+function spreadLineV8(ml){
+  const favProb = Math.max(ml.home, ml.away);
+  const diff = favProb - 0.5;
+
+  let pts = 1.5 + diff * 18;
+  pts = Math.round(pts * 2) / 2;
+  pts = clampV8(pts, 1.5, 9.5);
+  return pts;
+}
+
+function coverProbV8(ml){
+  const fav = Math.max(ml.home, ml.away);
+  let p = 0.5 + (fav - 0.5) * 0.55;
+  return clampV8(p, 0.52, 0.68);
+}
+
+function decimalOddsV8(prob){
+  // 只是介面示意算法，不是真實賠率
+  const v = 0.94 / prob;
+  return clampV8(v, 1.35, 3.6).toFixed(2);
+}
+
+function shortReasonV8(awayName, homeName, awayRec, homeRec, ml, spreadSide, line){
+  const awayGames = awayRec.total;
+  const homeGames = homeRec.total;
+
+  if(awayGames < 3 || homeGames < 3){
+    return `${spreadSide}目前在基礎戰績模型中較有優勢，但樣本場次仍偏少，建議當作早盤方向參考。`;
+  }
+
+  if(ml.away > 0.62){
+    return `${awayName}近期整體戰績較強，即使客場作戰，獨贏仍佔優勢；讓分後優勢縮小，但仍偏向 ${spreadSide}。`;
+  }
+
+  if(ml.home > 0.62){
+    return `${homeName}主場與整體表現較穩，獨贏勝率較高；讓分盤仍偏向 ${spreadSide}，但需留意臨場變化。`;
+  }
+
+  return `雙方整體差距不大，讓分盤比獨贏更有參考價值；目前模型略偏向 ${spreadSide}。`;
+}
+
+card = function(e){
+  const html = previousCardV8(e);
+  if(!html) return html;
+
+  const root = document.createElement("div");
+  root.innerHTML = html;
+  const article = root.querySelector("article");
+  if(!article) return html;
+
+  if(e.status?.type?.state !== "pre"){
+    return article.outerHTML;
+  }
+
+  const c = e.competitions?.[0]?.competitors || [];
+  const away = c.find(x=>x.homeAway==="away");
+  const home = c.find(x=>x.homeAway==="home");
+  if(!away || !home) return article.outerHTML;
+
+  const awayName = away.team?.displayName || away.team?.shortDisplayName || "客隊";
+  const homeName = home.team?.displayName || home.team?.shortDisplayName || "主隊";
+  const awayLogo = away.team?.logo || "";
+  const homeLogo = home.team?.logo || "";
+
+  const awayRec = parseRecordV8(away);
+  const homeRec = parseRecordV8(home);
+
+  const ml = moneylineModelV8(awayRec, homeRec);
+  const mlAway = (ml.away * 100).toFixed(0);
+  const mlHome = (ml.home * 100).toFixed(0);
+
+  const favIsHome = ml.home >= ml.away;
+  const line = spreadLineV8(ml);
+  const coverP = coverProbV8(ml);
+  const dogP = 1 - coverP;
+
+  const recommendTeam = favIsHome ? homeName : awayName;
+  const recommendSide = favIsHome
+    ? `${homeName} ${line > 0 ? "-" : ""}${line}`
+    : `${awayName} ${line > 0 ? "-" : ""}${line}`;
+
+  const awaySpread = favIsHome ? `+${line}` : `-${line}`;
+  const homeSpread = favIsHome ? `-${line}` : `+${line}`;
+
+  const awayCover = favIsHome ? (dogP * 100).toFixed(0) : (coverP * 100).toFixed(0);
+  const homeCover = favIsHome ? (coverP * 100).toFixed(0) : (dogP * 100).toFixed(0);
+
+  const awayOdds = decimalOddsV8((favIsHome ? dogP : coverP));
+  const homeOdds = decimalOddsV8((favIsHome ? coverP : dogP));
+
+  const summary = shortReasonV8(
+    awayName, homeName,
+    awayRec, homeRec,
+    ml, recommendSide, line
+  );
+
+  const box = document.createElement("section");
+  box.className = "pick-v8";
+  box.innerHTML = `
+    <div class="head">推薦：${recommendSide} ・ 1 注</div>
+    <div class="body">
+      <div class="league">NBA 賽前分析 ・ ${new Date(e.date).toLocaleString("zh-TW",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>
+
+      <div class="grid">
+        <div class="th">隊伍</div>
+        <div class="th">讓分</div>
+        <div class="th">勝率</div>
+        <div class="th">賠率</div>
+
+        <div class="team-row">
+          <div class="team-name">
+            <img src="${awayLogo}" alt="">
+            <span>${awayName}</span>
+          </div>
+          <div class="cell"><span class="tag ${awaySpread.startsWith("+") ? "alt" : ""}">${awaySpread}</span></div>
+          <div class="cell">${awayCover}%</div>
+          <div class="cell">${awayOdds}</div>
+        </div>
+
+        <div class="team-row">
+          <div class="team-name">
+            <img src="${homeLogo}" alt="">
+            <span>${homeName}</span>
+          </div>
+          <div class="cell"><span class="tag ${homeSpread.startsWith("+") ? "alt" : ""}">${homeSpread}</span></div>
+          <div class="cell">${homeCover}%</div>
+          <div class="cell">${homeOdds}</div>
+        </div>
+      </div>
+
+      <div class="split"></div>
+
+      <div class="winline">
+        <div class="pill">
+          <small>獨贏勝率｜${awayName}</small>
+          <strong>${mlAway}%</strong>
+        </div>
+        <div class="pill">
+          <small>獨贏勝率｜${homeName}</small>
+          <strong>${mlHome}%</strong>
+        </div>
+      </div>
+
+      <div class="summary">
+        <h4>AI 分析摘要</h4>
+        <p>${summary}</p>
+      </div>
+
+      <div class="note">
+        ※ 目前讓分、勝率與賠率為研究版介面與試算邏輯，之後可再接入真實盤口與更多分析條件。
+      </div>
+    </div>
+  `;
+
+  article.appendChild(box);
+  return article.outerHTML;
+};
+
+render();
+})();
+</script>
+<!-- Sports AI v0.8 END -->
+
 </body>
 </html>
