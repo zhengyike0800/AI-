@@ -1025,6 +1025,226 @@ winModel=function(a,h){
 })();
 </script>
 
+
+<script>
+/* Sports AI v1.5 - NBA Injury Information */
+(function(){
+
+const INJURY_API =
+ "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
+
+let injuriesByTeam = new Map();
+let injuryMessage = "正在確認傷兵資訊";
+let injuryChecked = "";
+let injuryRequest = 0;
+
+function injuryText(v){
+ return esc(String(v??""));
+}
+
+function injuryStatus(status){
+ const s=String(status||"").toLowerCase();
+
+ if(s==="out")return "缺陣";
+ if(s==="questionable")return "出賽存疑";
+ if(s==="doubtful")return "極可能缺陣";
+ if(s==="probable")return "預計可出賽";
+ if(s==="day-to-day")return "每日觀察";
+ if(s==="active")return "可出賽";
+
+ return status||"狀態未確認";
+}
+
+function parseInjuries(data){
+ const result=new Map();
+
+ if(!Array.isArray(data?.injuries)){
+  throw Error("傷兵資料格式不符");
+ }
+
+ for(const group of data.injuries){
+  const teamId=String(group.team?.id||"");
+  if(!teamId)continue;
+
+  const items=[];
+
+  for(const item of group.injuries||[]){
+   const athlete=item.athlete||{};
+
+   const player=String(
+    athlete.displayName||
+    athlete.fullName||""
+   ).trim();
+
+   const rawStatus=
+    typeof item.status==="object"?
+    (item.status?.name||item.status?.type||""):
+    (item.status||"");
+
+   if(!player)continue;
+
+   items.push({
+    player,
+    status:injuryStatus(rawStatus),
+    type:item.type?.description||
+         item.type?.name||""
+   });
+  }
+
+  result.set(teamId,items);
+ }
+
+ return result;
+}
+
+function injuryList(team){
+ const id=String(team.team?.id||"");
+
+ if(injuryMessage!=="已取得 ESPN 傷兵資料"){
+  return "<p>"+injuryText(injuryMessage)+"</p>";
+ }
+
+ if(!injuriesByTeam.has(id)){
+  return "<p>這支球隊的傷兵資料尚未確認</p>";
+ }
+
+ const list=injuriesByTeam.get(id);
+
+ if(!list.length){
+  return "<p>來源目前沒有列出傷兵，" +
+   "不代表全隊都能出賽。</p>";
+ }
+
+ return list.slice(0,12).map(p=>
+  "<div style='margin:6px 0'>" +
+  "• "+injuryText(p.player)+
+  "｜"+injuryText(p.status)+
+  (p.type?"（"+injuryText(p.type)+"）":"")+
+  "</div>"
+ ).join("");
+}
+
+const originalGameCard=gameCard;
+
+gameCard=function(g){
+ let html=originalGameCard(g);
+
+ const competitors=
+  g.competitions?.[0]?.competitors||[];
+
+ const away=competitors.find(
+  x=>x.homeAway==="away"
+ );
+
+ const home=competitors.find(
+  x=>x.homeAway==="home"
+ );
+
+ if(!away||!home)return html;
+
+ const extra=`
+  <div style="
+   border-top:1px solid #40516a;
+   margin-top:12px;padding-top:12px;
+   font-size:12px;line-height:1.8
+  ">
+   <b>🏥 傷兵資訊</b>
+
+   <div style="margin-top:8px">
+    <strong>${injuryText(teamName(away))}</strong>
+    ${injuryList(away)}
+   </div>
+
+   <div style="margin-top:8px">
+    <strong>${injuryText(teamName(home))}</strong>
+    ${injuryList(home)}
+   </div>
+
+   <div style="color:#aab8cd;margin-top:9px">
+    資料來源：ESPN<br>
+    檢查時間：${injuryText(injuryChecked||"尚未取得")}<br>
+    資料不等於 NBA 官方當場最終出賽名單。
+   </div>
+
+   <a
+    href="https://official.nba.com/nba-injury-report-2026-27-season/"
+    target="_blank"
+    rel="noopener noreferrer"
+    style="color:#ff7893"
+   >查看 NBA 官方傷兵報告</a>
+  </div>
+ `;
+
+ // 傷兵資料放在可展開的 AI 分析裡
+ return html.replace(
+  "</details>",
+  extra+"</details>"
+ );
+};
+
+async function updateInjuries(){
+ const token=++injuryRequest;
+
+ injuryMessage="正在確認傷兵資訊";
+
+ try{
+  const response=await fetch(INJURY_API,{
+   cache:"no-store"
+  });
+
+  if(!response.ok){
+   throw Error("HTTP "+response.status);
+  }
+
+  const data=await response.json();
+  const parsed=parseInjuries(data);
+
+  if(token!==injuryRequest)return;
+
+  injuriesByTeam=parsed;
+  injuryMessage="已取得 ESPN 傷兵資料";
+
+ }catch(error){
+  if(token!==injuryRequest)return;
+
+  injuriesByTeam=new Map();
+  injuryMessage="ESPN 傷兵資料暫時無法確認";
+ }
+
+ injuryChecked=new Intl.DateTimeFormat(
+  "zh-TW",{
+   timeZone:"Asia/Taipei",
+   month:"2-digit",day:"2-digit",
+   hour:"2-digit",minute:"2-digit",
+   hour12:false
+  }
+ ).format(new Date());
+
+ render();
+}
+
+// 開啟頁面時讀取
+updateInjuries();
+
+// 按更新按鈕時也重新讀取
+$("refresh").addEventListener(
+ "click",updateInjuries
+);
+
+// App 開啟期間每五分鐘更新
+setInterval(()=>{
+ if(!document.hidden)updateInjuries();
+},300000);
+
+document.addEventListener(
+ "visibilitychange",()=>{
+  if(!document.hidden)updateInjuries();
+ }
+);
+
+})();
+</script>
+
  
 </body>
 </html>
