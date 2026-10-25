@@ -1333,5 +1333,33 @@ document.addEventListener(
 </script>
 
  
+<script>
+(async function(){
+ try{
+  const url="https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
+  const res=await fetch(url,{cache:"no-store"});
+  const data=await res.json();
+  const group=data.injuries?.[0]||{};
+  const player=group.injuries?.[0]||{};
+
+  const info=[
+   "球隊欄位："+Object.keys(group).join(", "),
+   "球隊資料："+JSON.stringify(group).slice(0,250),
+   "球員欄位："+Object.keys(player).join(", ")
+  ].join("\n");
+
+  document.querySelectorAll("details.analysis").forEach(el=>{
+   const box=document.createElement("pre");
+   box.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;color:#fff";
+   box.textContent="🔍 詳細診斷\n"+info;
+   el.appendChild(box);
+  });
+ }catch(e){
+  console.error("傷兵診斷失敗",e);
+ }
+})();
+</script>
+
+ 
 </body>
 </html>
