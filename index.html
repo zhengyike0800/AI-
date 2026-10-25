@@ -1945,6 +1945,63 @@ btn.onclick=async()=>{
 </script>
 
  
+<script>
+/* Sports AI v2.0 - Conservative Mode */
+(function(){
+
+ const originalGameCard=gameCard;
+
+ gameCard=function(g){
+  const html=originalGameCard(g);
+  if(!html)return html;
+
+  const root=document.createElement("div");
+  root.innerHTML=html;
+
+  const detail=root.querySelector(
+   "details.analysis .detail"
+  );
+
+  if(!detail)return html;
+
+  const c=g.competitions?.[0]?.competitors||[];
+  const a=c.find(x=>x.homeAway==="away");
+  const h=c.find(x=>x.homeAway==="home");
+
+  if(!a||!h)return html;
+
+  const isPregame=state(g)==="尚未開賽";
+  const odds=market(g,a,h);
+  const model=isPregame&&
+   Number.isFinite(odds.home)?
+   coverModel(a,h,odds.home):null;
+
+  let message="";
+
+  if(!isPregame){
+   message="比賽已開始或結束，不提供賽前建議。";
+  }else if(!model){
+   message="建議觀望：歷史數據或讓分資料不足。";
+  }else{
+   const team=model.home>=0.5?
+    teamName(h):teamName(a);
+
+   message=
+    "模型分析：讓分方向偏向"+team+"。"+
+    "但目前策略尚未證明具有穩定過盤優勢。"+
+    "投注建議：觀望。";
+  }
+
+  detail.textContent=message;
+  return root.innerHTML;
+ };
+
+ render();
+
+})();
+</script>
+
+ 
 </body>
 </html>
 
