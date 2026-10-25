@@ -1016,5 +1016,334 @@ render();
 </script>
 <!-- Sports AI v0.6 END -->
 
+
+<!-- Sports AI v0.7 START -->
+<style>
+.elo-v7{
+ margin-top:12px;
+ padding:15px;
+ background:#171f32;
+ border:1px solid #713d54;
+ border-radius:13px;
+}
+.elo-v7 h4{
+ margin:0 0 12px;
+ color:#ff7189;
+}
+.elo-v7 .numbers{
+ display:flex;
+ justify-content:space-between;
+ font-size:20px;
+ font-weight:800;
+}
+.elo-v7 .progress{
+ display:flex;
+ height:10px;
+ background:#64748b;
+ border-radius:20px;
+ overflow:hidden;
+ margin:12px 0;
+}
+.elo-v7 .progress span{
+ display:block;
+ background:#ff3655;
+}
+.elo-v7 p{
+ font-size:12px;
+ color:#bdc8dc;
+ line-height:1.8;
+}
+.elo-v7 details{
+ margin-top:12px;
+ border:1px solid #3a465e;
+ border-radius:10px;
+ padding:11px;
+}
+.elo-v7 summary{
+ color:#ff9faf;
+ cursor:pointer;
+}
+</style>
+
+<script>
+(function(){
+"use strict";
+
+const V7_API=
+"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?limit=500&dates=";
+
+const baseMonths=[
+"202510","202511","202512",
+"202601","202602","202603","202604"
+];
+
+let modelV7=null;
+let stateV7="正在讀取 Elo 歷史資料…";
+
+const previousCardV7=card;
+
+function gameData(e){
+ if(e.status?.type?.state!=="post")return null;
+ if(Number(e.season?.type)!==2)return null;
+
+ const c=e.competitions?.[0]?.competitors||[];
+ const a=c.find(x=>x.homeAway==="away");
+ const h=c.find(x=>x.homeAway==="home");
+
+ if(!a||!h)return null;
+
+ const as=Number(a.score);
+ const hs=Number(h.score);
+
+ if(!Number.isFinite(as)||!Number.isFinite(hs))return null;
+ if(as===hs)return null;
+
+ return {
+  id:e.id,
+  time:new Date(e.date).getTime(),
+  season:Number(e.season?.year)||0,
+  away:String(a.team.id),
+  home:String(h.team.id),
+  homeWin:hs>as
+ };
+}
+
+function probability(away,home){
+ // Elo 主場優勢設定為 75 點
+ return 1/(1+Math.pow(
+  10,(away-home-75)/400
+ ));
+}
+
+function eloBuild(events){
+ const ratings=new Map();
+ const counts=new Map();
+ let season=0;
+ let tested=0,correct=0,brier=0;
+ let processed=0;
+
+ const games=events.map(gameData)
+  .filter(Boolean)
+  .sort((a,b)=>a.time-b.time);
+
+ const predictions=new Map();
+
+ for(const g of games){
+  if(g.season!==season){
+   if(season){
+    for(const [id,r] of ratings){
+     ratings.set(id,1500+(r-1500)*0.75);
+    }
+   }
+   season=g.season;
+  }
+
+  const ar=ratings.get(g.away)||1500;
+  const hr=ratings.get(g.home)||1500;
+  const p=probability(ar,hr);
+
+  const an=counts.get(g.away)||0;
+  const hn=counts.get(g.home)||0;
+
+  // 只用當場比賽之前已完成的賽事
+  if(processed>=150&&an>=8&&hn>=8){
+   const outcome=g.homeWin?1:0;
+   brier+=Math.pow(p-outcome,2);
+   if((p>=0.5)===g.homeWin)correct++;
+   tested++;
+  }
+
+  predictions.set(g.id,{
+   home:p,away:1-p
+  });
+
+  const change=20*((g.homeWin?1:0)-p);
+
+  ratings.set(g.home,hr+change);
+  ratings.set(g.away,ar-change);
+  counts.set(g.home,hn+1);
+  counts.set(g.away,an+1);
+  processed++;
+ }
+
+ return {
+  ratings,counts,predictions,
+  processed,tested,correct,
+  brier:tested?brier/tested:null
+ };
+}
+
+async function fetchV7Month(key){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),15000);
+ try{
+  const r=await fetch(V7_API+key,{
+   signal:controller.signal
+  });
+  if(!r.ok)throw Error("HTTP "+r.status);
+  const data=await r.json();
+  return data.events||[];
+ }finally{
+  clearTimeout(timer);
+ }
+}
+
+function monthsV7(){
+ const now=selectedDate();
+ const keys=[...baseMonths];
+
+ const end=now.slice(0,7).replace("-","");
+ for(let m=202610;m<=Number(end);){
+  const year=Math.floor(m/100);
+  const month=m%100;
+  keys.push(String(m));
+  m=month===12?(year+1)*100+1:m+1;
+  if(keys.length>=20)break;
+ }
+ return [...new Set(keys)];
+}
+
+async function loadEloV7(){
+ stateV7="正在建立 Elo 模型…";
+ render();
+
+ try{
+  const keys=monthsV7();
+  const response=await Promise.allSettled(
+   keys.map(fetchV7Month)
+  );
+
+  // 避免歷史月份缺漏造成錯誤評級
+  if(response.some(r=>r.status!=="fulfilled")){
+   throw Error("有歷史月份讀取失敗");
+  }
+
+  const map=new Map();
+  response.forEach(r=>{
+   r.value.forEach(e=>{
+    if(e.id)map.set(e.id,e);
+   });
+  });
+
+  const events=[...map.values()];
+  const candidate=eloBuild(events);
+
+  if(candidate.processed<800){
+   throw Error("歷史比賽不足 800 場");
+  }
+
+  modelV7=candidate;
+  stateV7="Elo 歷史模型已建立";
+ }catch(e){
+  modelV7=null;
+  stateV7="Elo 尚不可用："+e.message;
+ }
+
+ render();
+}
+
+function predictionV7(e){
+ if(!modelV7)return null;
+ if(e.status?.type?.state!=="pre")return null;
+
+ const c=e.competitions?.[0]?.competitors||[];
+ const a=c.find(x=>x.homeAway==="away");
+ const h=c.find(x=>x.homeAway==="home");
+
+ if(!a||!h)return null;
+
+ const aid=String(a.team.id);
+ const hid=String(h.team.id);
+
+ const ar=modelV7.ratings.get(aid);
+ const hr=modelV7.ratings.get(hid);
+
+ if(!Number.isFinite(ar)||!Number.isFinite(hr))return null;
+
+ if((modelV7.counts.get(aid)||0)<8 ||
+    (modelV7.counts.get(hid)||0)<8)return null;
+
+ const p=probability(ar,hr);
+
+ return {
+  home:p,away:1-p,
+  ar,hr
+ };
+}
+
+card=function(e){
+ const html=previousCardV7(e);
+ if(!html)return html;
+
+ const root=document.createElement("div");
+ root.innerHTML=html;
+ const article=root.querySelector("article");
+ if(!article)return html;
+
+ const box=document.createElement("section");
+ box.className="elo-v7";
+
+ const p=predictionV7(e);
+
+ if(!p){
+  box.innerHTML=`
+   <h4>v0.7 Elo 勝率研究</h4>
+   <p>${stateV7}</p>
+   <p>模型只對尚未開賽、資料完整的場次
+   提供實驗性勝率。</p>`;
+ }else{
+  const away=(p.away*100).toFixed(1);
+  const home=(p.home*100).toFixed(1);
+
+  const tested=modelV7.tested;
+  const hit=tested?
+   (modelV7.correct/tested*100).toFixed(1)+"%":"—";
+  const bs=modelV7.brier===null?
+   "—":modelV7.brier.toFixed(4);
+
+  box.innerHTML=`
+   <h4>v0.7 Elo 賽前勝率試算</h4>
+   <div class="numbers">
+    <span>客 ${away}%</span>
+    <span>主 ${home}%</span>
+   </div>
+   <div class="progress">
+    <span style="width:${away}%"></span>
+   </div>
+   <p>
+    客隊 Elo：${p.ar.toFixed(0)}<br>
+    主隊 Elo：${p.hr.toFixed(0)}
+   </p>
+   <details>
+    <summary>查看歷史模型表現</summary>
+    <p>
+     歷史評估場次：${tested}<br>
+     預測方向命中率：${hit}<br>
+     Brier Score：${bs}<br>
+     Brier 越低越好，需與基準模型比較。
+    </p>
+    <p>
+     歷史評估採逐場更新的方式，
+     不使用當場的比賽結果計算該場預測。
+     這不是獨立樣本外驗證。
+    </p>
+   </details>
+   <p>
+    此為實驗性 Elo 模型，
+    尚未納入傷兵、陣容異動、休息日等因素。
+    不能保證預測準確，也不代表投注優勢。
+   </p>`;
+ }
+
+ article.appendChild(box);
+ return article.outerHTML;
+};
+
+// 優先建立 Elo，不改動原本的賽程連線
+loadEloV7();
+})();
+</script>
+<!-- Sports AI v0.7 END -->
+
 </body>
 </html>
