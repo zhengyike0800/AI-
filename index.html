@@ -937,7 +937,13 @@ async function recentResults(){
       status?.completed!==true
      )continue;
 
-     events.push(g);
+     
+if(Number(g.season?.type)!==2){
+ continue;
+}
+
+events.push(g);
+
     }
    }catch(e){
     // 單日讀取失敗不拿假的比分補資料。
