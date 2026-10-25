@@ -820,5 +820,201 @@ updateHistory();
 </script>
 <!-- Sports AI v0.5 END -->
 
+
+<!-- Sports AI v0.6 START -->
+<style>
+.lab-v6{
+ margin-top:12px;
+ padding:14px;
+ background:#191e30;
+ border:1px solid #633347;
+ border-radius:13px;
+}
+.lab-v6 h4{
+ color:#ff657e;
+ margin:0 0 10px;
+}
+.lab-v6 .values{
+ display:flex;
+ justify-content:space-between;
+ font-size:19px;
+ font-weight:800;
+}
+.lab-v6 .track{
+ display:flex;
+ height:10px;
+ background:#566174;
+ border-radius:20px;
+ overflow:hidden;
+ margin:12px 0;
+}
+.lab-v6 .track span{
+ background:#ff3655;
+}
+.lab-v6 p{
+ color:#b9c5d7;
+ font-size:12px;
+ line-height:1.8;
+}
+details.more-v6{
+ margin-top:12px;
+ background:#151f30;
+ border:1px solid #394761;
+ border-radius:12px;
+}
+details.more-v6 summary{
+ color:#ff9eaf;
+ padding:14px;
+ cursor:pointer;
+ font-size:14px;
+}
+details.more-v6>div{
+ margin:10px;
+}
+</style>
+<script>
+(function(){
+"use strict";
+
+const previousCardV6=card;
+
+function readForm(box){
+ if(!box)return null;
+
+ const strong=box.querySelector("strong");
+ const m=/^(\d+)-(\d+)$/.exec(
+  strong?.textContent?.trim()||""
+ );
+ if(!m)return null;
+
+ const wins=Number(m[1]);
+ const losses=Number(m[2]);
+
+ const text=box.textContent||"";
+ const get=label=>{
+  const match=text.match(
+   new RegExp(label+"：\\s*([\\d.]+)")
+  );
+  return match?Number(match[1]):NaN;
+ };
+
+ return {
+  wins,losses,n:wins+losses,
+  scored:get("得分"),
+  allowed:get("失分")
+ };
+}
+
+function forecast(a,h){
+ if(!a||!h||a.n<5||h.n<5)return null;
+
+ if(![
+  a.scored,a.allowed,h.scored,h.allowed
+ ].every(Number.isFinite))return null;
+
+ const ar=a.wins/a.n;
+ const hr=h.wins/h.n;
+
+ const an=a.scored-a.allowed;
+ const hn=h.scored-h.allowed;
+
+ // 實驗性公式，尚未歷史校準
+ const recordDiff=(hr-ar)*0.12;
+ const scoreDiff=(hn-an)*0.003;
+ const homeAdjust=0.025;
+
+ const homeP=Math.max(0.35,Math.min(0.65,
+  0.5+recordDiff+scoreDiff+homeAdjust
+ ));
+
+ return {
+  away:1-homeP,
+  home:homeP,
+  aNet:an,
+  hNet:hn
+ };
+}
+
+card=function(e){
+ const html=previousCardV6(e);
+ if(!html)return html;
+
+ const root=document.createElement("div");
+ root.innerHTML=html;
+ const article=root.querySelector("article");
+ if(!article)return html;
+
+ const form=article.querySelector(".form-v5");
+ const boxes=form?.querySelectorAll(".form-box");
+
+ const a=boxes?.[0]?readForm(boxes[0]):null;
+ const h=boxes?.[1]?readForm(boxes[1]):null;
+
+ const ready=e.status?.type?.state==="pre";
+ const result=ready?forecast(a,h):null;
+
+ const lab=document.createElement("section");
+ lab.className="lab-v6";
+
+ if(!ready){
+  lab.innerHTML=`
+   <h4>v0.6 賽事分析</h4>
+   <p>本場已開始或結束。
+   不使用賽後取得的數據倒推賽前勝率。</p>`;
+ }else if(!result){
+  lab.innerHTML=`
+   <h4>v0.6 勝率研究</h4>
+   <p>近期樣本不足。
+   雙方各需至少 5 場可取得的已完成比賽。
+   目前不提供勝率試算。</p>`;
+ }else{
+  const away=(result.away*100).toFixed(1);
+  const home=(result.home*100).toFixed(1);
+
+  lab.innerHTML=`
+   <h4>v0.6 實驗性勝率試算</h4>
+   <div class="values">
+    <span>客 ${away}%</span>
+    <span>主 ${home}%</span>
+   </div>
+   <div class="track">
+    <span style="width:${away}%"></span>
+   </div>
+   <p>客隊近期得失分差：
+   ${result.aNet.toFixed(1)}</p>
+   <p>主隊近期得失分差：
+   ${result.hNet.toFixed(1)}</p>
+   <p>模型考慮近期戰績、得失分差及固定主場修正。
+   未納入傷兵、對手強度、球員陣容變化。</p>
+   <p>此機率尚未校準，不能當成實際投注優勢。</p>`;
+ }
+
+ const oldBlocks=[
+  ...article.querySelectorAll(
+   ".analysis-v4,.form-v5"
+  )
+ ];
+
+ if(oldBlocks.length){
+  const details=document.createElement("details");
+  details.className="more-v6";
+
+  const summary=document.createElement("summary");
+  summary.textContent="展開完整戰績分析";
+  details.appendChild(summary);
+
+  oldBlocks[0].before(details);
+  oldBlocks.forEach(block=>details.appendChild(block));
+ }
+
+ article.appendChild(lab);
+ return article.outerHTML;
+};
+
+render();
+})();
+</script>
+<!-- Sports AI v0.6 END -->
+
 </body>
 </html>
