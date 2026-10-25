@@ -1988,10 +1988,30 @@ btn.onclick=async()=>{
    const team=model.home>=0.5?
     teamName(h):teamName(a);
 
-   message=
-    "模型分析：讓分方向偏向"+team+"。"+
-    "但目前策略尚未證明具有穩定過盤優勢。"+
-    "投注建議：觀望。";
+   
+const edge=Math.abs(model.home-0.5);
+const probability=Math.max(
+ model.home,model.away
+);
+
+if(edge<0.05){
+ message=
+  "讓分預測接近五五波，建議觀望。";
+}else if(edge<0.10){
+ message=
+  "模型較偏向"+team+
+  "，估算勝率"+
+  (probability*100).toFixed(1)+"%。"+
+  "但優勢不明確，建議觀望。";
+}else{
+ message=
+  "模型明顯偏向"+team+
+  "，估算過盤機率"+
+  (probability*100).toFixed(1)+"%。"+
+  "列為優先研究場次；"+
+  "尚未通過歷史驗證，不等於建議下注。";
+}
+
   }
 
   detail.textContent=message;
