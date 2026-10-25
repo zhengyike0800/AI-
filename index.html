@@ -1351,7 +1351,21 @@ btn.onclick=async()=>{
    .replace(/-/g,"");
  }
 
- function dates(){
+ 
+function dates(){
+ const list=[];
+
+ for(
+  let d=new Date("2026-10-01T12:00:00Z");
+  d<=new Date("2026-10-25T12:00:00Z");
+  d.setUTCDate(d.getUTCDate()+1)
+ ){
+  list.push(dateKey(d));
+ }
+
+ return list;
+}
+
   const list=[];
   let d=new Date("2026-10-01T12:00:00Z");
       d<=new Date("2026-10-25T12:00:00Z");
