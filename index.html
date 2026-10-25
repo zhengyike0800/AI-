@@ -1244,6 +1244,93 @@ document.addEventListener(
 
 })();
 </script>
+ 
+
+<script>
+/* Sports AI v1.5.1 Injury Diagnostic */
+(function(){
+ const URL=
+ "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
+
+ let report="正在測試 ESPN 傷兵資料…";
+
+ function show(){
+  document.querySelectorAll(
+   "details.analysis"
+  ).forEach(box=>{
+   let el=box.querySelector(".injury-debug");
+
+   if(!el){
+    el=document.createElement("div");
+    el.className="injury-debug";
+    el.style.cssText=
+     "margin-top:12px;padding:10px;"+
+     "border:1px solid #52627b;"+
+     "border-radius:9px;font-size:12px;"+
+     "line-height:1.8;color:#cad6e7";
+    box.appendChild(el);
+   }
+
+   el.textContent="🔎 傷兵診斷："+report;
+  });
+ }
+
+ const oldRender=render;
+
+ render=function(){
+  oldRender();
+  show();
+ };
+
+ async function check(){
+  report="正在連線…";
+  show();
+
+  try{
+   const r=await fetch(URL,{
+    cache:"no-store"
+   });
+
+   if(!r.ok){
+    report="API 回應錯誤：HTTP "+r.status;
+    show();
+    return;
+   }
+
+   const data=await r.json();
+
+   const groups=Array.isArray(data.injuries)?
+    data.injuries:null;
+
+   if(!groups){
+    report="資料格式不同；頂層欄位："+ 
+     Object.keys(data).slice(0,8).join(", ");
+   }else{
+    const ids=groups.map(x=>
+     String(x.team?.id||"未知")
+    );
+
+    const count=groups.reduce(
+     (n,x)=>n+(x.injuries?.length||0),0
+    );
+
+    report=
+     "讀取成功；球隊組數："+groups.length+
+     "；球員筆數："+count+
+     "；來源球隊 ID："+ids.slice(0,30).join(",");
+   }
+
+  }catch(e){
+   report="連線或解析失敗："+e.message;
+  }
+
+  show();
+ }
+
+ $("refresh").addEventListener("click",check);
+ check();
+})();
+</script>
 
  
 </body>
