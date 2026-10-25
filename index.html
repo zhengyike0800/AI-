@@ -869,6 +869,245 @@ setInterval(()=>{
 },300000);
 
 </script>
+
+ 
+<script>
+/* Sports AI v1.7 - Verified Recent Games */
+(function(){
+
+const oldWinModel=winModel;
+const oldCoverModel=coverModel;
+
+let recentTeams=new Map();
+let recentToken=0;
+let recentCache=null;
+
+// 逐日取得真實完賽資料。
+// 不依賴可能不支援的日期區間 API。
+async function recentResults(){
+ const day=selected();
+ const cutoff=Math.min(
+  Date.now(),
+  new Date(day+"T23:59:59Z").getTime()
+ );
+
+ const cacheKey=day;
+ if(recentCache&&
+    recentCache.key===cacheKey&&
+    Date.now()-recentCache.time<300000){
+  return recentCache.data;
+ }
+
+ const dates=[];
+ for(let i=1;i<=21;i++){
+  const d=new Date(cutoff-i*86400000);
+  dates.push(
+   d.toISOString().slice(0,10).replace(/-/g,"")
+  );
+ }
+
+ const events=[];
+ const seen=new Set();
+ let index=0;
+ let success=0;
+
+ async function worker(){
+  while(index<dates.length){
+   const date=dates[index++];
+
+   try{
+    const data=await getJSON(
+     API+"scoreboard?dates="+date
+    );
+    success++;
+
+    for(const g of data.events||[]){
+     if(!g.id||seen.has(g.id))continue;
+     seen.add(g.id);
+
+     const start=new Date(g.date).getTime();
+     if(!Number.isFinite(start)||start>=cutoff)
+      continue;
+
+     const status=g.status?.type;
+     if(
+      status?.state!=="post"&&
+      status?.completed!==true
+     )continue;
+
+     events.push(g);
+    }
+   }catch(e){
+    // 單日讀取失敗不拿假的比分補資料。
+   }
+  }
+ }
+
+ await Promise.all([
+  worker(),worker(),worker(),worker()
+ ]);
+
+ if(success<14){
+  throw Error("近期比賽資料讀取不足");
+ }
+
+ const map=new Map();
+
+ for(const g of events){
+  const comps=g.competitions?.[0]?.competitors||[];
+  if(comps.length!==2)continue;
+
+  const a=comps.find(x=>x.homeAway==="away");
+  const h=comps.find(x=>x.homeAway==="home");
+  if(!a||!h)continue;
+
+  const as=Number(a.score);
+  const hs=Number(h.score);
+
+  if(!Number.isFinite(as)||!Number.isFinite(hs))
+   continue;
+
+  for(const [team,own,other] of [
+   [a,as,hs],[h,hs,as]
+  ]){
+   const id=String(team.team?.id||"");
+   if(!id)continue;
+
+   if(!map.has(id))map.set(id,[]);
+
+   map.get(id).push({
+    date:new Date(g.date).getTime(),
+    margin:own-other,
+    win:own>other?1:0
+   });
+  }
+ }
+
+ const final=new Map();
+
+ for(const [id,rows] of map){
+  rows.sort((a,b)=>b.date-a.date);
+  const last=rows.slice(0,10);
+  const lastFive=last.slice(0,5);
+
+  if(last.length<5)continue;
+
+  final.set(id,{
+   count:last.length,
+   winRate:last.reduce((n,x)=>n+x.win,0)/
+    last.length,
+   margin:last.reduce((n,x)=>n+x.margin,0)/
+    last.length,
+   fiveMargin:lastFive.reduce(
+    (n,x)=>n+x.margin,0
+   )/lastFive.length
+  });
+ }
+
+ recentCache={
+  key:cacheKey,time:Date.now(),data:final
+ };
+
+ return final;
+}
+
+function formOf(team){
+ return recentTeams.get(String(team.team?.id||""));
+}
+
+function recentAdjustment(a,h){
+ const ar=formOf(a),hr=formOf(h);
+
+ if(!ar||!hr)return null;
+
+ // 最近分差異常時限制影響幅度。
+ const difference=hr.margin-ar.margin;
+
+ return Math.max(
+  -0.3,Math.min(0.3,difference*0.025)
+ );
+}
+
+// 以近期真實賽果保守調整獨贏勝率。
+winModel=function(a,h){
+ const base=oldWinModel(a,h);
+ if(!base)return null;
+
+ const adj=recentAdjustment(a,h);
+ if(adj===null)return base;
+
+ const logit=Math.log(
+  base.home/(1-base.home)
+ );
+
+ const home=1/(1+Math.exp(-(logit+adj)));
+
+ return {home,away:1-home};
+};
+
+// 近期分差加入讓分模型，保留原模型
+// 尚未校準的分差波動假設。
+coverModel=function(a,h,line){
+ const base=oldCoverModel(a,h,line);
+ if(!base)return null;
+
+ const ar=formOf(a),hr=formOf(h);
+ if(!ar||!hr)return base;
+
+ const recentEdge=(hr.margin-ar.margin)/2;
+ const expected=base.expected+
+  Math.max(-3,Math.min(3,recentEdge*0.25));
+
+ const home=normalCDF(
+  (expected+line)/12
+ );
+
+ return {home,away:1-home,expected};
+};
+
+async function updateRecent(){
+ const token=++recentToken;
+
+ try{
+  const result=await recentResults();
+  if(token!==recentToken)return;
+  recentTeams=result;
+ }catch(e){
+  if(token!==recentToken)return;
+  recentTeams=new Map();
+ }
+
+ render();
+}
+
+// 保留原本 load 資料讀取流程。
+const oldLoad=load;
+load=async function(){
+ recentTeams=new Map();
+ const p=oldLoad();
+ await Promise.allSettled([p,updateRecent()]);
+};
+
+// 舊版按鈕已綁定舊 load，因此額外掛上
+// 近期資料更新，不重複修改原本畫面。
+for(const id of ["prev","today","next","refresh"]){
+ $(id).addEventListener("click",()=>{
+  recentTeams=new Map();
+  updateRecent();
+ });
+}
+
+document.addEventListener("visibilitychange",()=>{
+ if(!document.hidden)updateRecent();
+});
+
+// 初次開啟時讀取近期真實賽果。
+updateRecent();
+
+})();
+</script>
+
+ 
 </body>
 </html>
 
