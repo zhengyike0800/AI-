@@ -1,67 +1,433 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
+<head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sports AI v0.2</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090e19">
+<title>Sports AI v0.3</title>
 <style>
-body{margin:0;background:#090e19;color:white;font-family:Arial,sans-serif}
-header{padding:28px 20px;background:#172136;font-size:30px;font-weight:bold}
-header span{color:#ff3655}
-main{padding:18px}
-button{background:#ec284b;color:white;border:0;padding:12px;border-radius:10px;margin:4px}
-.card{background:#172238;border:1px solid #38475e;border-radius:16px;padding:18px;margin:15px 0}
-.logo{width:65px;height:65px;object-fit:contain}
-.teams{display:flex;justify-content:space-around;text-align:center;align-items:center}
-small{color:#aab6c9}
+*{box-sizing:border-box}
+body{margin:0;background:#090e19;color:#f5f6fb;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif}
+header{padding:25px 18px 18px;background:linear-gradient(130deg,#222b43,#090e19)}
+.logo{font-size:29px;font-weight:900}
+.logo b{color:#ff3655}
+.sub,.muted{color:#a5b3ca;font-size:12px;line-height:1.6}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pill{background:#4e1c31;color:#ffc2cc;border-radius:30px;padding:8px 11px;font-size:12px}
+main{max-width:670px;margin:auto;padding:18px 14px 120px}
+h2{font-size:21px;margin:6px 0}
+h3{margin:10px 0}
+button{font:inherit;border:0;color:#dfe5f1;background:#202c40;border-radius:11px;padding:11px 12px;cursor:pointer}
+button.active,.primary{color:white;background:linear-gradient(120deg,#ff3655,#ad1534)}
+.bar{display:flex;gap:7px;margin:13px 0}
+.bar button{flex:1;font-size:13px}
+nav{position:fixed;z-index:4;bottom:0;width:100%;display:grid;grid-template-columns:repeat(5,1fr);background:#101a2a;border-top:1px solid #304057;padding:7px 2px max(12px,env(safe-area-inset-bottom))}
+nav button{background:none;padding:6px 1px;font-size:11px;color:#9ba9c0;line-height:1.8}
+nav button.active{background:none;color:#ff526e}
+nav .ico{display:block;font-size:21px}
+.status{background:#151f30;border:1px solid #344660;border-radius:12px;padding:12px;color:#bfccdc;font-size:12px;line-height:1.7;margin:13px 0}
+.card{background:linear-gradient(145deg,#19263a,#111929);border:1px solid #30415a;border-radius:17px;padding:15px;margin:12px 0}
+.teams{display:flex;justify-content:space-around;align-items:center;gap:8px;margin:16px 0}
+.team{width:42%;text-align:center;font-size:16px;font-weight:700}
+.team img{width:62px;height:62px;display:block;object-fit:contain;margin:0 auto 7px}
+.vs{color:#95a1b5;font-size:12px}
+.score{font-size:23px;font-weight:800;color:#ff526e;margin-top:6px}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.metric{background:#202d41;border-radius:10px;padding:10px 4px;text-align:center}
+.metric strong{display:block;font-size:14px}
+.metric small{color:#9eabc0;font-size:10px}
+.actions{display:flex;gap:8px;margin-top:12px}
+.actions button{flex:1;font-size:13px}
+.search{width:100%;color:white;background:#202b3d;border:1px solid #38475d;border-radius:10px;padding:12px;font-size:16px}
+.hidden{display:none!important}
+.empty{padding:22px;text-align:center;color:#a5b3ca}
 </style>
-<header>賽事 <span>AI</span></header>
+</head>
+<body>
+<header>
+<div class="row">
+<div>
+<div class="logo">賽事 <b>AI</b></div>
+<div class="sub">SPORTS INTELLIGENCE · NBA</div>
+</div>
+<span class="pill">🇹🇼 台灣時間</span>
+</div>
+</header>
+
 <main>
-<h2>NBA 賽程與比分</h2>
-<button onclick="change(-1)">前一天</button>
-<button onclick="change(0)">今天</button>
-<button onclick="change(1)">後一天</button>
-<button onclick="load()">重新整理</button>
-<p id="date"></p>
-<p id="status">準備載入賽程</p>
+<div class="row">
+<div>
+<h2 id="heading">NBA 賽事中心</h2>
+<div class="muted" id="dateLabel"></div>
+</div>
+<span class="pill" id="count">— 場</span>
+</div>
+
+<div class="bar" id="marketBar">
+<button class="active" data-market="PK">PK 盤</button>
+<button data-market="讓分">讓分盤</button>
+<button data-market="大小">大小分</button>
+</div>
+
+<div class="bar">
+<button id="prev">◀ 前一天</button>
+<button id="today">今天</button>
+<button id="next">後一天 ▶</button>
+<button id="refresh">⟳</button>
+</div>
+
+<input class="search" id="search" placeholder="搜尋隊名、縮寫">
+
+<div class="status" id="status">正在讀取 NBA 資料…</div>
 <div id="games"></div>
+
+<div id="personal" class="hidden">
+<div class="card">
+<h3>我的 Sports AI</h3>
+<p class="muted">v0.3 · 紅黑色 NBA 賽事中心</p>
+<p class="muted">
+收藏記錄保存在目前瀏覽器。
+比分與賽程由 ESPN 非官方公開介面提供。
+勝率模型、傷兵與真實盤口尚未串接。
+</p>
+<button id="clearFav">清空收藏</button>
+</div>
+</div>
+
+<p class="muted">
+資料可能延遲。頁面開啟時每五分鐘嘗試更新。
+未開賽不會以 0：0 顯示。
+</p>
 </main>
+
+<nav id="nav">
+<button data-page="home" class="active">
+<span class="ico">⌂</span>首頁
+</button>
+<button data-page="scores">
+<span class="ico">▥</span>比分
+</button>
+<button data-page="schedule">
+<span class="ico">▦</span>賽事
+</button>
+<button data-page="favs">
+<span class="ico">☆</span>收藏
+</button>
+<button data-page="mine">
+<span class="ico">♙</span>我的
+</button>
+</nav>
+
 <script>
+const API="https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=";
+
+const TW={
+ATL:"老鷹",BOS:"塞爾提克",BKN:"籃網",
+BRK:"籃網",CHA:"黃蜂",CHI:"公牛",
+CLE:"騎士",DAL:"獨行俠",DEN:"金塊",
+DET:"活塞",GS:"勇士",GSW:"勇士",
+HOU:"火箭",IND:"溜馬",LAC:"快艇",
+LAL:"湖人",MEM:"灰熊",MIA:"熱火",
+MIL:"公鹿",MIN:"灰狼",NO:"鵜鶘",
+NOP:"鵜鶘",NY:"尼克",NYK:"尼克",
+OKC:"雷霆",ORL:"魔術",PHI:"76人",
+PHX:"太陽",POR:"拓荒者",SA:"馬刺",
+SAS:"馬刺",SAC:"國王",TOR:"暴龍",
+UTA:"爵士",WAS:"巫師",WSH:"巫師"
+};
+
+const $=id=>document.getElementById(id);
+
 let offset=0;
-const names={LAL:"湖人",UTA:"爵士",GS:"勇士",GSW:"勇士",BOS:"塞爾提克",OKC:"雷霆",MIN:"灰狼",NY:"尼克",NYK:"尼克",PHI:"76人"};
-function change(n){offset=n;load()}
-function getDate(){
-let s=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-let [y,m,d]=s.split("-").map(Number);
-let dt=new Date(Date.UTC(y,m-1,d+offset));
-return dt.toISOString().slice(0,10).replaceAll("-","");
-}
-async function load(){
-let date=getDate();
-document.getElementById("date").textContent="台灣日期："+date;
-document.getElementById("status").textContent="正在讀取 NBA 資料…";
-document.getElementById("games").innerHTML="";
+let page="home";
+let market="PK";
+let games=[];
+let favorites=[];
+let requestID=0;
+
 try{
-let r=await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates="+date);
-if(!r.ok)throw Error("HTTP "+r.status);
-let data=await r.json();
-let events=data.events||[];
-document.getElementById("status").textContent="已載入 "+events.length+" 場賽事";
-events.forEach(e=>{
-let c=e.competitions?.[0]?.competitors||[];
-let away=c.find(x=>x.homeAway==="away");
-let home=c.find(x=>x.homeAway==="home");
-if(!away||!home)return;
-let team=x=>`<div><img class="logo" src="${x.team.logo||""}" alt=""><p>${names[x.team.abbreviation]||x.team.displayName}</p><small>${x.score??"-"}</small></div>`;
-let box=document.createElement("div");
-box.className="card";
-let time=new Date(e.date).toLocaleString("zh-TW",{timeZone:"Asia/Taipei",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-box.innerHTML=`<small>${time} · ${e.status?.type?.description||"NBA"}</small><div class="teams">${team(away)}<b>VS</b>${team(home)}</div>`;
-document.getElementById("games").appendChild(box);
+favorites=JSON.parse(localStorage.getItem("sports_favs_v03")||"[]");
+if(!Array.isArray(favorites))favorites=[];
+}catch(e){favorites=[]}
+
+function dateTW(date){
+const f=new Intl.DateTimeFormat("en-US",{
+timeZone:"Asia/Taipei",
+year:"numeric",month:"2-digit",day:"2-digit"
 });
-}catch(e){
-document.getElementById("status").textContent="連線失敗："+e.message;
+const parts=f.formatToParts(date);
+const o={};
+parts.forEach(p=>o[p.type]=p.value);
+return o.year+"-"+o.month+"-"+o.day;
+}
+
+function selectedDate(){
+const a=dateTW(new Date()).split("-").map(Number);
+return new Date(Date.UTC(a[0],a[1]-1,a[2]+offset))
+.toISOString().slice(0,10);
+}
+
+function fmt(date){
+return new Intl.DateTimeFormat("zh-TW",{
+timeZone:"Asia/Taipei",
+month:"2-digit",day:"2-digit",
+hour:"2-digit",minute:"2-digit",hour12:false
+}).format(new Date(date));
+}
+
+function safe(s){
+return String(s??"").replace(/[&<>"']/g,c=>({
+"&":"&amp;","<":"&lt;",">":"&gt;",
+'"':"&quot;","'":"&#39;"
+}[c]));
+}
+
+function nameTW(x){
+const t=x?.team||{};
+return TW[t.abbreviation]||t.displayName||"未知隊伍";
+}
+
+function live(e){
+return e.status?.type?.state==="in";
+}
+
+function ended(e){
+return e.status?.type?.state==="post";
+}
+
+function statusText(e){
+return ended(e)?"已完賽":live(e)?"進行中":"尚未開賽";
+}
+
+async function getEvents(d){
+const controller=new AbortController();
+const timer=setTimeout(()=>controller.abort(),12000);
+try{
+const r=await fetch(API+d.replaceAll("-",""),{
+signal:controller.signal
+});
+if(!r.ok)throw Error("HTTP "+r.status);
+return (await r.json()).events||[];
+}finally{
+clearTimeout(timer);
 }
 }
+
+async function load(){
+const rid=++requestID;
+const date=selectedDate();
+const previous=new Date(
+new Date(date+"T00:00:00Z").getTime()-86400000
+).toISOString().slice(0,10);
+
+$("dateLabel").textContent=date+" · 台灣日期";
+$("status").textContent="正在連接 ESPN…";
+$("games").innerHTML="";
+$("count").textContent="讀取中";
+
+try{
+const results=await Promise.allSettled([
+getEvents(previous),getEvents(date)
+]);
+if(rid!==requestID)return;
+
+if(results.every(x=>x.status==="rejected")){
+throw Error("資料來源無法連線");
+}
+
+const map=new Map();
+
+for(const result of results){
+if(result.status!=="fulfilled")continue;
+for(const e of result.value){
+if(e.id&&dateTW(new Date(e.date))===date){
+map.set(e.id,e);
+}
+}
+}
+
+games=[...map.values()].sort(
+(a,b)=>new Date(a.date)-new Date(b.date)
+);
+
+render();
+
+const partial=results.some(x=>x.status==="rejected");
+$("status").textContent=
+"資料已更新："+fmt(new Date())+
+" · ESPN"+(partial?"（部分來源失敗）":"");
+
+}catch(err){
+if(rid!==requestID)return;
+games=[];
+render();
+$("status").textContent=
+"連線失敗："+err.message+"，請按 ⟳ 再試。";
+}
+}
+
+function card(e){
+const c=e.competitions?.[0]?.competitors||[];
+const away=c.find(x=>x.homeAway==="away");
+const home=c.find(x=>x.homeAway==="home");
+if(!away||!home)return "";
+
+const played=live(e)||ended(e);
+
+function side(x){
+const t=x.team||{};
+const logo=t.logo||t.logos?.[0]?.href||"";
+return `
+<div class="team">
+${logo?`<img src="${safe(logo)}" alt="${safe(nameTW(x))}標誌" loading="lazy">`:""}
+${safe(nameTW(x))}
+<div class="muted">
+${safe(t.abbreviation||"")} · ${x.homeAway==="home"?"主":"客"}
+</div>
+${played?`<div class="score">${safe(x.score??"-")}</div>`:""}
+</div>`;
+}
+
+return `
+<article class="card">
+<div class="row">
+<span class="pill">NBA · ${statusText(e)}</span>
+<span class="muted">${fmt(e.date)}</span>
+</div>
+<div class="teams">
+${side(away)}
+<span class="vs">VS</span>
+${side(home)}
+</div>
+<div class="metrics">
+<div class="metric">
+<strong>${safe(away.records?.[0]?.summary||"—")}</strong>
+<small>客隊戰績</small>
+</div>
+<div class="metric">
+<strong>${safe(home.records?.[0]?.summary||"—")}</strong>
+<small>主隊戰績</small>
+</div>
+<div class="metric">
+<strong>待分析</strong>
+<small>${market==="PK"?"勝負":market==="讓分"?"讓分":"總分"}預測</small>
+</div>
+</div>
+<div class="actions">
+<button data-fav="${safe(e.id)}">
+${favorites.includes(e.id)?"★ 已收藏":"☆ 收藏"}
+</button>
+<button class="primary" data-detail="${safe(e.id)}">
+分析詳情
+</button>
+</div>
+</article>`;
+}
+
+function render(){
+document.querySelectorAll("#nav button").forEach(b=>{
+b.classList.toggle("active",b.dataset.page===page);
+});
+
+$("personal").classList.toggle("hidden",page!=="mine");
+$("games").classList.toggle("hidden",page==="mine");
+$("search").classList.toggle("hidden",page==="mine");
+$("marketBar").classList.toggle("hidden",page==="mine");
+
+const titles={
+home:"NBA 賽事分析",
+scores:"NBA 即時比分",
+schedule:"NBA 賽程",
+favs:"我的收藏",
+mine:"個人設定"
+};
+$("heading").textContent=titles[page];
+
+const q=$("search").value.trim().toLowerCase();
+
+const list=games.filter(e=>{
+const c=e.competitions?.[0]?.competitors||[];
+const match=c.some(x=>
+(nameTW(x)+" "+(x.team?.abbreviation||""))
+.toLowerCase().includes(q)
+);
+return match
+&&(page!=="favs"||favorites.includes(e.id))
+&&(page!=="scores"||live(e)||ended(e));
+});
+
+$("count").textContent=page==="mine"?"設定":list.length+" 場";
+
+$("games").innerHTML=page==="mine"?"":(
+list.map(card).join("")||
+'<p class="empty">這個日期沒有符合條件的賽事。</p>'
+);
+}
+
+document.querySelectorAll("#nav button").forEach(b=>{
+b.onclick=()=>{
+page=b.dataset.page;
+render();
+window.scrollTo(0,0);
+};
+});
+
+document.querySelectorAll("#marketBar button").forEach(b=>{
+b.onclick=()=>{
+market=b.dataset.market;
+document.querySelectorAll("#marketBar button").forEach(x=>{
+x.classList.toggle("active",x===b);
+});
+render();
+};
+});
+
+$("prev").onclick=()=>{offset--;load()};
+$("today").onclick=()=>{offset=0;load()};
+$("next").onclick=()=>{offset++;load()};
+$("refresh").onclick=load;
+$("search").oninput=render;
+
+$("games").onclick=e=>{
+const fav=e.target.closest("[data-fav]");
+if(fav){
+const id=fav.dataset.fav;
+favorites=favorites.includes(id)
+?favorites.filter(x=>x!==id)
+:[...favorites,id];
+try{
+localStorage.setItem("sports_favs_v03",JSON.stringify(favorites));
+}catch(e){}
+render();
+return;
+}
+
+const detail=e.target.closest("[data-detail]");
+if(detail){
+const g=games.find(x=>x.id===detail.dataset.detail);
+if(!g)return;
+const c=g.competitions?.[0]?.competitors||[];
+alert(
+"賽事："+c.map(nameTW).join(" VS ")+
+"\n開賽："+fmt(g.date)+
+"\n目前尚無可靠的 AI 勝率與真實盤口。"
+);
+}
+};
+
+$("clearFav").onclick=()=>{
+if(confirm("確定清空收藏？")){
+favorites=[];
+try{localStorage.removeItem("sports_favs_v03")}catch(e){}
+render();
+}
+};
+
 load();
+setInterval(()=>{
+if(!document.hidden)load();
+},300000);
 </script>
+</body>
 </html>
