@@ -1753,5 +1753,81 @@ render();
 </script>
 <!-- Sports AI v0.8.1 END -->
 
+  
+<!-- Sports AI v0.8.2 中文隊名 -->
+<script>
+(function(){
+const teamsZH={
+"Atlanta Hawks":"老鷹",
+"Boston Celtics":"塞爾提克",
+"Brooklyn Nets":"籃網",
+"Charlotte Hornets":"黃蜂",
+"Chicago Bulls":"公牛",
+"Cleveland Cavaliers":"騎士",
+"Dallas Mavericks":"獨行俠",
+"Denver Nuggets":"金塊",
+"Detroit Pistons":"活塞",
+"Golden State Warriors":"勇士",
+"Houston Rockets":"火箭",
+"Indiana Pacers":"溜馬",
+"LA Clippers":"快艇",
+"Los Angeles Clippers":"快艇",
+"Los Angeles Lakers":"湖人",
+"Memphis Grizzlies":"灰熊",
+"Miami Heat":"熱火",
+"Milwaukee Bucks":"公鹿",
+"Minnesota Timberwolves":"灰狼",
+"New Orleans Pelicans":"鵜鶘",
+"New York Knicks":"尼克",
+"Oklahoma City Thunder":"雷霆",
+"Orlando Magic":"魔術",
+"Philadelphia 76ers":"76人",
+"Phoenix Suns":"太陽",
+"Portland Trail Blazers":"拓荒者",
+"Sacramento Kings":"國王",
+"San Antonio Spurs":"馬刺",
+"Toronto Raptors":"暴龍",
+"Utah Jazz":"爵士",
+"Washington Wizards":"巫師"
+};
+
+const originalCard=card;
+
+card=function(e){
+ const html=originalCard(e);
+ if(!html)return html;
+
+ const root=document.createElement("div");
+ root.innerHTML=html;
+
+ const pick=root.querySelector(".pick-v8");
+ if(!pick)return html;
+
+ const walker=document.createTreeWalker(
+  pick,NodeFilter.SHOW_TEXT
+ );
+
+ const nodes=[];
+ while(walker.nextNode()){
+  nodes.push(walker.currentNode);
+ }
+
+ for(const node of nodes){
+  let text=node.nodeValue;
+  for(const [english,chinese] of Object.entries(teamsZH)){
+   text=text.split(english).join(chinese);
+  }
+  node.nodeValue=text;
+ }
+
+ return root.innerHTML;
+};
+
+render();
+})();
+</script>
+<!-- Sports AI v0.8.2 END -->
+
+
 </body>
 </html>
