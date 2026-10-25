@@ -1677,5 +1677,81 @@ render();
 </script>
 <!-- Sports AI v0.8 END -->
 
+  
+<!-- Sports AI v0.8.1 精簡介面 -->
+<style>
+/* 賽前卡片只顯示新版分析 */
+.card:has(.pick-v8)>:not(.pick-v8){
+  display:none!important;
+}
+
+/* 隱藏舊版分析區塊 */
+.analysis-v4,
+.form-v5,
+.lab-v6,
+.elo-v7,
+.more-v6{
+  display:none!important;
+}
+
+/* 精簡卡片外框 */
+.card:has(.pick-v8){
+  background:transparent;
+  border:0;
+  padding:0;
+  box-shadow:none;
+}
+
+/* 新版分析卡填滿寬度 */
+.card:has(.pick-v8) .pick-v8{
+  margin:0;
+  width:100%;
+}
+
+/* 手機顯示優化 */
+.pick-v8 .grid{
+  grid-template-columns:1.35fr .8fr .7fr .7fr;
+  gap:5px;
+}
+.pick-v8 .team-name{
+  font-size:12px;
+  gap:5px;
+  overflow-wrap:anywhere;
+}
+.pick-v8 .team-name img{
+  width:24px;
+  height:24px;
+  flex-shrink:0;
+}
+.pick-v8 .cell{
+  font-size:13px;
+  padding:8px 3px;
+}
+</style>
+
+<script>
+(function(){
+  const oldCard=card;
+  card=function(e){
+    const html=oldCard(e);
+    if(!html)return html;
+
+    const root=document.createElement("div");
+    root.innerHTML=html;
+
+    const pick=root.querySelector(".pick-v8");
+    if(pick){
+      const heading=pick.querySelector(".head");
+      if(heading){
+        heading.textContent="賽前分析｜模擬數據";
+      }
+    }
+    return root.innerHTML;
+  };
+  render();
+})();
+</script>
+<!-- Sports AI v0.8.1 END -->
+
 </body>
 </html>
