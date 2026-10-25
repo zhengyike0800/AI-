@@ -1108,6 +1108,207 @@ updateRecent();
 </script>
 
  
+<script>
+/* Sports AI v1.8 - Historical Benchmark */
+(function(){
+
+const settings=document.getElementById("settings");
+if(!settings)return;
+
+const btn=document.createElement("button");
+btn.textContent="▶ 執行歷史預測驗證";
+btn.style.cssText=
+ "display:block;width:100%;margin:12px 0;"+
+ "background:#c52d50;padding:13px";
+
+const output=document.createElement("div");
+output.style.cssText=
+ "font-size:12px;line-height:1.8;"+
+ "color:#cbd5e1;white-space:pre-line";
+
+settings.appendChild(btn);
+settings.appendChild(output);
+
+function dayString(date){
+ return date.toISOString().slice(0,10)
+  .replace(/-/g,"");
+}
+
+function historicalDates(){
+ const dates=[];
+ const start=new Date("2026-03-15T12:00:00Z");
+ const end=new Date("2026-04-15T12:00:00Z");
+
+ for(
+  let d=new Date(start);
+  d<=end;
+  d.setUTCDate(d.getUTCDate()+1)
+ ){
+  dates.push(dayString(d));
+ }
+
+ return dates;
+}
+
+async function getHistory(){
+ const dates=historicalDates();
+ const collected=[];
+ const seen=new Set();
+ let index=0,success=0;
+
+ async function worker(){
+  while(index<dates.length){
+   const date=dates[index++];
+
+   try{
+    const url=API+"scoreboard?dates="+date;
+    const data=await getJSON(url);
+    success++;
+
+    for(const game of data.events||[]){
+     if(!game.id||seen.has(game.id))continue;
+     seen.add(game.id);
+
+     if(game.status?.type?.state!=="post")
+      continue;
+
+     const teams=
+      game.competitions?.[0]?.competitors||[];
+
+     const home=teams.find(x=>x.homeAway==="home");
+     const away=teams.find(x=>x.homeAway==="away");
+
+     if(!home||!away)continue;
+
+     const hs=Number(home.score);
+     const as=Number(away.score);
+
+     if(!Number.isFinite(hs)||
+        !Number.isFinite(as)||
+        hs===as)continue;
+
+     if(!home.team?.id||!away.team?.id)continue;
+
+     collected.push({
+      id:game.id,
+      date:new Date(game.date).getTime(),
+      home:String(home.team.id),
+      away:String(away.team.id),
+      homeWin:hs>as?1:0
+     });
+    }
+   }catch(e){}
+  }
+ }
+
+ await Promise.all([
+  worker(),worker(),worker(),worker()
+ ]);
+
+ if(success<24){
+  throw Error(
+   "ESPN 歷史資料讀取不完整（"+
+   success+"/"+dates.length+" 天）"
+  );
+ }
+
+ collected.sort((a,b)=>a.date-b.date);
+ return collected;
+}
+
+function testElo(games){
+ const rating=new Map();
+ const get=id=>rating.get(id)??1500;
+
+ const K=20;
+ const homeBonus=65;
+
+ let tested=0,correct=0;
+ let brier=0;
+ let loss=0;
+
+ games.forEach((game,i)=>{
+  const hr=get(game.home);
+  const ar=get(game.away);
+
+  const p=1/(
+   1+Math.pow(10,(ar-hr-homeBonus)/400)
+  );
+
+  // 前40場只用來初始化評級。
+  // 後面每一場都先預測，再更新 Elo。
+  if(i>=40){
+   tested++;
+
+   if((p>=0.5)===(game.homeWin===1))
+    correct++;
+
+   brier+=Math.pow(p-game.homeWin,2);
+
+   const bounded=Math.min(
+    0.999999,Math.max(0.000001,p)
+   );
+
+   loss-=game.homeWin*Math.log(bounded)+
+    (1-game.homeWin)*Math.log(1-bounded);
+  }
+
+  const shift=K*(game.homeWin-p);
+
+  rating.set(game.home,hr+shift);
+  rating.set(game.away,ar-shift);
+ });
+
+ if(tested<30){
+  throw Error("有效測試場次不足");
+ }
+
+ return {
+  total:games.length,
+  tested,
+  accuracy:100*correct/tested,
+  brier:brier/tested,
+  logloss:loss/tested
+ };
+}
+
+btn.onclick=async()=>{
+ btn.disabled=true;
+ btn.textContent="正在驗證歷史賽事…";
+ output.textContent=
+  "讀取 2026/03/15～04/15 的真實賽果。\n"+
+  "這是獨立 Elo 基準測試，不會修改目前預測。";
+
+ try{
+  const games=await getHistory();
+  const result=testElo(games);
+
+  output.textContent=
+   "歷史驗證結果\n"+
+   "取得完賽："+result.total+" 場\n"+
+   "有效測試："+result.tested+" 場\n"+
+   "預測方向命中率："+result.accuracy.toFixed(1)+"%\n"+
+   "Brier Score："+result.brier.toFixed(4)+"\n"+
+   "Log Loss："+result.logloss.toFixed(4)+"\n\n"+
+   "參考：永遠預測50%時，Brier Score為0.2500。\n"+
+   "Brier與Log Loss越低越好。\n"+
+   "注意：這是短期 Elo 基準，尚未驗證目前App使用的模型。"+
+   "不包含傷兵修正或讓分預測驗證。";
+
+ }catch(e){
+  output.textContent=
+   "驗證未完成："+e.message+
+   "\n本次結果不納入模型。";
+ }finally{
+  btn.disabled=false;
+  btn.textContent="▶ 重新執行歷史驗證";
+ }
+};
+
+})();
+</script>
+
+ 
 </body>
 </html>
 
