@@ -1693,6 +1693,258 @@ btn.onclick=async()=>{
 </script>
 
  
+<script>
+/* Sports AI v1.9 - Pre-game Snapshot Tracker */
+(function(){
+ const KEY="sportsai_pregame_v19";
+
+ function read(){
+  try{
+   const data=JSON.parse(localStorage.getItem(KEY)||"{}");
+   return data&&typeof data==="object"?data:{};
+  }catch(e){return {};}
+ }
+
+ function write(data){
+  try{
+   localStorage.setItem(KEY,JSON.stringify(data));
+   return true;
+  }catch(e){return false;}
+ }
+
+ function saveSnapshots(){
+  if(typeof games==="undefined")return;
+
+  const records=read();
+  let changed=false;
+
+  for(const g of games){
+   const start=new Date(g.date).getTime();
+   const now=Date.now();
+
+   // 僅接受開賽前快照。
+   if(!Number.isFinite(start)||now>=start)continue;
+   if(state(g)!=="尚未開賽")continue;
+
+   const c=g.competitions?.[0]?.competitors||[];
+   const h=c.find(x=>x.homeAway==="home");
+   const a=c.find(x=>x.homeAway==="away");
+   if(!h||!a||!g.id)continue;
+
+   const odds=market(g,a,h);
+   const w=winModel(a,h);
+   const s=Number.isFinite(odds.home)?
+    coverModel(a,h,odds.home):null;
+
+   // 只保存當下有完整預測和盤口的場次。
+   if(!w||!s||
+      !Number.isFinite(w.home)||
+      !Number.isFinite(s.home))continue;
+
+   const id=String(g.id);
+   const snapshot={
+    id,
+    start,
+    recorded:now,
+    homeId:String(h.team?.id||""),
+    awayId:String(a.team?.id||""),
+    homeName:teamName(h),
+    awayName:teamName(a),
+    homeLine:odds.home,
+    awayLine:odds.away,
+    source:odds.source,
+    homeWin:w.home,
+    homeCover:s.home
+   };
+
+   const previous=records[id];
+
+   // 保存首次記錄，以及目前最新賽前快照。
+   if(!previous){
+    records[id]={
+     first:snapshot,
+     latest:snapshot
+    };
+    changed=true;
+   }else if(now>previous.latest.recorded){
+    previous.latest=snapshot;
+    changed=true;
+   }
+  }
+
+  if(changed)write(records);
+ }
+
+ // 每當原本首頁重新計算後，記錄當下結果。
+ const originalRender=render;
+ render=function(){
+  originalRender();
+  try{saveSnapshots();}catch(e){}
+ };
+
+ // 定期檢查已顯示的比賽。
+ saveSnapshots();
+ setInterval(saveSnapshots,30000);
+
+ document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden){
+   setTimeout(saveSnapshots,1500);
+  }
+ });
+
+ const settings=document.getElementById("settings");
+ if(!settings)return;
+
+ const btn=document.createElement("button");
+ btn.textContent="查看賽前紀錄與實際過盤率";
+ btn.style.cssText=
+  "width:100%;margin:14px 0;"+
+  "padding:13px;background:#bb3654";
+
+ const result=document.createElement("div");
+ result.style.cssText=
+  "white-space:pre-line;line-height:1.85;"+
+  "font-size:12px;color:#ced8e8";
+
+ settings.append(btn,result);
+
+ const fmtTime=n=>new Date(n).toLocaleString(
+  "zh-TW",{
+   timeZone:"Asia/Taipei",
+   month:"2-digit",day:"2-digit",
+   hour:"2-digit",minute:"2-digit",
+   hour12:false
+  }
+ );
+
+ async function findResults(entries){
+  const dates=[...new Set(
+   entries.map(r=>
+    new Date(r.latest.start)
+     .toISOString().slice(0,10)
+     .replace(/-/g,"")
+   )
+  )];
+
+  const found=new Map();
+
+  for(const date of dates){
+   try{
+    const data=await getJSON(
+     API+"scoreboard?dates="+date
+    );
+    for(const g of data.events||[]){
+     found.set(String(g.id),g);
+    }
+   }catch(e){}
+  }
+  return found;
+ }
+
+ btn.onclick=async()=>{
+  btn.disabled=true;
+  result.textContent="正在核對已保存的賽前紀錄…";
+
+  try{
+   const entries=Object.values(read());
+   if(!entries.length){
+    result.textContent=
+     "目前尚無賽前紀錄。\n"+
+     "當你開啟有未開賽賽事的頁面，"+
+     "且成功取得盤口與模型預測後，"+
+     "系統就會開始保存。";
+    return;
+   }
+
+   const completed=await findResults(entries);
+
+   let wins=0,winN=0;
+   let covers=0,coverN=0;
+   let pushes=0,pending=0;
+   const details=[];
+
+   for(const row of entries){
+    const r=row.latest;
+    const g=completed.get(r.id);
+    const c=g?.competitions?.[0]?.competitors||[];
+    const h=c.find(x=>x.homeAway==="home");
+    const a=c.find(x=>x.homeAway==="away");
+
+    if(
+     g?.status?.type?.state!=="post"||
+     !h||!a
+    ){
+     pending++;
+     continue;
+    }
+
+    const hs=Number(h.score);
+    const as=Number(a.score);
+    if(!Number.isFinite(hs)||
+       !Number.isFinite(as))continue;
+
+    const margin=hs-as;
+
+    if(margin!==0){
+     winN++;
+     if((r.homeWin>=0.5)===(margin>0))
+      wins++;
+    }
+
+    const adjusted=margin+r.homeLine;
+
+    if(Math.abs(adjusted)<0.00001){
+     pushes++;
+    }else{
+     coverN++;
+     if((r.homeCover>=0.5)===(adjusted>0))
+      covers++;
+    }
+
+    const pick=r.homeCover>=0.5?
+     r.homeName:r.awayName;
+
+    details.push(
+     r.awayName+" "+as+" : "+hs+" "+r.homeName+
+     "\n記錄："+fmtTime(r.recorded)+
+     "｜主隊讓分："+r.homeLine+
+     "\n讓分模型選擇："+pick+
+     "｜"+(
+      adjusted===0?"走盤":
+      (r.homeCover>=0.5)===(adjusted>0)?
+      "過盤":"未過盤"
+     )
+    );
+   }
+
+   const pct=(a,b)=>b?
+    (100*a/b).toFixed(1)+"%":"尚無資料";
+
+   result.textContent=
+    "Sports AI 賽前預測追蹤\n"+
+    "已保存賽事："+entries.length+" 場\n"+
+    "尚待完賽或核對："+pending+" 場\n\n"+
+    "獨贏："+wins+"/"+winN+
+    "｜"+pct(wins,winN)+"\n"+
+    "讓分過盤："+covers+"/"+coverN+
+    "｜"+pct(covers,coverN)+"\n"+
+    "走盤："+pushes+" 場\n\n"+
+    details.join("\n\n")+
+    "\n\n資料保存在目前瀏覽器。"+
+    "使用的是最後一次成功保存的賽前盤口，"+
+    "不保證是市場收盤盤口。"+
+    "小樣本結果不代表未來命中率。";
+
+  }catch(e){
+   result.textContent="核對失敗："+e.message;
+  }finally{
+   btn.disabled=false;
+  }
+ };
+})();
+</script>
+
+ 
 </body>
 </html>
 
