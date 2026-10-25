@@ -1936,6 +1936,71 @@ btn.onclick=async()=>{
     "使用的是最後一次成功保存的賽前盤口，"+
     "不保證是市場收盤盤口。"+
     "小樣本結果不代表未來命中率。";
+   
+/* v2.1 分類過盤驗證 */
+const groups=[
+ {name:"觀望",min:0,max:0.55,n:0,w:0,push:0},
+ {name:"觀察場次",min:0.55,max:0.60,n:0,w:0,push:0},
+ {name:"優先研究",min:0.60,max:1.01,n:0,w:0,push:0}
+];
+
+for(const row of entries){
+ const r=row.latest;
+ const g=completed.get(r.id);
+
+ if(g?.status?.type?.state!=="post")continue;
+ if(!Number.isFinite(r.homeLine)||
+    !Number.isFinite(r.homeCover)||
+    r.recorded>=r.start)continue;
+
+ const c=g.competitions?.[0]?.competitors||[];
+ const h=c.find(x=>x.homeAway==="home");
+ const a=c.find(x=>x.homeAway==="away");
+ if(!h||!a)continue;
+
+ const hs=Number(h.score);
+ const as=Number(a.score);
+ if(!Number.isFinite(hs)||!Number.isFinite(as))
+  continue;
+
+ const probability=Math.max(
+  r.homeCover,1-r.homeCover
+ );
+ const group=groups.find(x=>
+  probability>=x.min&&probability<x.max
+ );
+ if(!group)continue;
+
+ const difference=hs-as+r.homeLine;
+ if(Math.abs(difference)<0.00001){
+  group.push++;
+  continue;
+ }
+
+ group.n++;
+
+ const predictedHome=r.homeCover>=0.5;
+ const actualHome=difference>0;
+
+ if(predictedHome===actualHome)group.w++;
+}
+
+result.textContent+="\n\n【分類過盤驗證】";
+
+for(const x of groups){
+ result.textContent+=
+  "\n"+x.name+"："+x.w+"/"+x.n+
+  "｜"+(x.n?
+   (100*x.w/x.n).toFixed(1)+"%":
+   "樣本不足")+
+  "｜走盤 "+x.push+" 場";
+}
+
+result.textContent+=
+ "\n分類依據：賽前保存的模型機率。"+
+ "\n未完賽、缺少盤口及走盤不計入過盤率。"+
+ "\n分類結果需要足夠的獨立樣本驗證。";
+
 
   }catch(e){
    result.textContent="核對失敗："+e.message;
