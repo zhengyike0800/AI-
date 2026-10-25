@@ -1361,5 +1361,33 @@ document.addEventListener(
 </script>
 
  
+<script>
+/* Sports AI - 簡潔分析介面 */
+(function(){
+ const previousRender=render;
+
+ render=function(){
+  previousRender();
+
+  document.querySelectorAll(
+   "details.analysis"
+  ).forEach(box=>{
+   [...box.children].forEach(child=>{
+    if(
+     child.classList.contains("injury-debug") ||
+     child.tagName==="PRE" ||
+     child.textContent.includes("🏥 傷兵資訊")
+    ){
+     child.remove();
+    }
+   });
+  });
+ };
+
+ render();
+})();
+</script>
+
+ 
 </body>
 </html>
