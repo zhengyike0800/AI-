@@ -1309,6 +1309,390 @@ btn.onclick=async()=>{
 </script>
 
  
+<script>
+/* Sports AI - Current Strategy Replay */
+(function(){
+ const settings=document.getElementById("settings");
+ if(!settings)return;
+
+ // 避免與之前的獨立 Elo 測試混淆
+ settings.querySelectorAll("button").forEach(b=>{
+  if(b.textContent.includes("歷史預測驗證")){
+   b.style.display="none";
+  }
+ });
+
+ const btn=document.createElement("button");
+ btn.textContent="▶ 回測目前策略";
+ btn.style.cssText=
+  "width:100%;margin:12px 0;"+
+  "background:#c52d50;padding:13px";
+
+ const report=document.createElement("div");
+ report.style.cssText=
+  "font-size:12px;line-height:1.9;"+
+  "white-space:pre-line;color:#cad6e7";
+
+ settings.append(btn,report);
+
+ const sigmoid=x=>1/(1+Math.exp(-x));
+ const bounded=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+ function dateKey(d){
+  return d.toISOString().slice(0,10)
+   .replace(/-/g,"");
+ }
+
+ function dates(){
+  const list=[];
+  for(let d=new Date("2026-10-20T12:00:00Z");
+      d<=new Date("2026-10-25T12:00:00Z");
+      d.setUTCDate(d.getUTCDate()+1)){
+   list.push(dateKey(d));
+  }
+  return list;
+ }
+
+ async function history(){
+  const days=dates();
+  const jobs=await Promise.allSettled(
+   days.map(d=>getJSON(
+    API+"scoreboard?dates="+d
+   ))
+  );
+
+  let succeeded=0;
+  const all=new Map();
+
+  jobs.forEach(job=>{
+   if(job.status!=="fulfilled")return;
+   succeeded++;
+
+   for(const e of job.value.events||[]){
+    if(e.id&&!all.has(e.id)){
+     all.set(e.id,e);
+    }
+   }
+  });
+
+  if(succeeded<5){
+   throw Error(
+    "賽果讀取不足："+succeeded+"/6 天"
+   );
+  }
+
+  const results=[];
+
+  for(const e of all.values()){
+   if(e.status?.type?.state!=="post")
+    continue;
+
+   const c=e.competitions?.[0];
+   const teams=c?.competitors||[];
+
+   const h=teams.find(x=>x.homeAway==="home");
+   const a=teams.find(x=>x.homeAway==="away");
+
+   if(!h||!a)continue;
+
+   const hs=Number(h.score);
+   const as=Number(a.score);
+
+   if(!Number.isFinite(hs)||
+      !Number.isFinite(as)||
+      hs===as)continue;
+
+   const home=String(h.team?.id||"");
+   const away=String(a.team?.id||"");
+
+   if(!home||!away)continue;
+
+   const time=new Date(e.date).getTime();
+   if(!Number.isFinite(time))continue;
+
+   results.push({
+    time,home,away,
+    homeName:teamName(h),
+    awayName:teamName(a),
+    margin:hs-as,
+    odds:c.odds||[]
+   });
+  }
+
+  results.sort((a,b)=>a.time-b.time);
+  return results;
+ }
+
+ function teamForm(games,id){
+  const played=games.filter(g=>
+   g.home===id||g.away===id
+  );
+
+  const margins=played.map(g=>
+   g.home===id?g.margin:-g.margin
+  );
+
+  const wins=margins.filter(x=>x>0).length;
+  const n=margins.length;
+
+  const last=played.slice(-10);
+  const recentMargins=last.map(g=>
+   g.home===id?g.margin:-g.margin
+  );
+
+  return {
+   n,w:wins,
+   p:n?wins/n:0.5,
+   margin:n?
+    margins.reduce((a,b)=>a+b,0)/n:0,
+   recent:recentMargins.length>=5?{
+    p:recentMargins.filter(x=>x>0).length/
+      recentMargins.length,
+    margin:recentMargins.reduce((a,b)=>a+b,0)/
+      recentMargins.length
+   }:null
+  };
+ }
+
+ function blendRate(prior,form,key){
+  if(!Number.isFinite(prior?.[key]))
+   return null;
+
+  if(!form.n)return prior[key];
+
+  return (
+   12*prior[key]+form.n*form[key]
+  )/(12+form.n);
+ }
+
+ function lineOf(g){
+  for(const o of g.odds){
+   const m=String(o.details||"").trim().match(
+    /^([A-Z]{2,5})\s*([+-]\d+(?:\.\d+)?)$/i
+   );
+
+   if(!m)continue;
+
+   // 歷史賽事需要取得可辨識的主客隊縮寫
+   const ab=m[1].toUpperCase();
+
+   // 由 ESPN 賽事資料保存的縮寫對應
+   const homeAb=g.homeAb;
+   const awayAb=g.awayAb;
+
+   const n=Number(m[2]);
+   if(ab===homeAb)return n;
+   if(ab===awayAb)return -n;
+  }
+
+  return null;
+ }
+
+ function calculate(g,previous,prior){
+  const hp=prior.get(g.home);
+  const ap=prior.get(g.away);
+
+  if(!hp||!ap||hp.n<20||ap.n<20)
+   return null;
+
+  const earlier=previous.filter(x=>x.time<g.time);
+  const hf=teamForm(earlier,g.home);
+  const af=teamForm(earlier,g.away);
+
+  const hr=blendRate(hp,hf,"p");
+  const ar=blendRate(ap,af,"p");
+
+  if(hr===null||ar===null)return null;
+
+  let logit=2.4*(hr-ar)+0.12;
+
+  if(hf.recent&&af.recent){
+   logit+=0.5*(hf.recent.p-af.recent.p);
+   logit+=bounded(
+    (hf.recent.margin-af.recent.margin)*0.025,
+    -0.3,0.3
+   );
+  }
+
+  const homeWin=sigmoid(logit);
+
+  const hm=blendRate(hp,hf,"margin");
+  const am=blendRate(ap,af,"margin");
+
+  let expected=null;
+
+  if(hm!==null&&am!==null){
+   expected=(hm-am)/2+2.5;
+
+   if(hf.recent&&af.recent){
+    expected+=bounded(
+     (hf.recent.margin-af.recent.margin)*
+     0.125,
+     -3,3
+    );
+   }
+  }
+
+  return {homeWin,expected};
+ }
+
+ btn.onclick=async()=>{
+  btn.disabled=true;
+  report.textContent="正在讀取真實比賽…";
+
+  try{
+   const [events,priorJson]=await Promise.all([
+    history(),
+    getJSON(STANDINGS+"2026")
+   ]);
+
+   const prior=parseStandings(priorJson);
+   if(prior.size<25){
+    throw Error(
+     "上季球隊實力資料不完整"
+    );
+   }
+
+   // 日期資料的盤口代碼必須從原始賽事建立
+   const rawDays=await Promise.allSettled(
+    dates().map(d=>getJSON(
+     API+"scoreboard?dates="+d
+    ))
+   );
+
+   const abbreviations=new Map();
+
+   rawDays.forEach(job=>{
+    if(job.status!=="fulfilled")return;
+
+    for(const e of job.value.events||[]){
+     const c=e.competitions?.[0]?.competitors||[];
+     const h=c.find(x=>x.homeAway==="home");
+     const a=c.find(x=>x.homeAway==="away");
+
+     if(h&&a){
+      abbreviations.set(e.id,{
+       home:h.team?.abbreviation?.toUpperCase(),
+       away:a.team?.abbreviation?.toUpperCase(),
+       time:new Date(e.date).getTime()
+      });
+     }
+    }
+   });
+
+   // 用隊伍與開始時間匹配同場資料
+   // 此處若無法可靠對應縮寫，就不測讓分。
+   const perGame=new Map();
+
+   rawDays.forEach(job=>{
+    if(job.status!=="fulfilled")return;
+
+    for(const e of job.value.events||[]){
+     const c=e.competitions?.[0]?.competitors||[];
+     const h=c.find(x=>x.homeAway==="home");
+     const a=c.find(x=>x.homeAway==="away");
+     if(!h||!a)continue;
+
+     perGame.set(
+      String(h.team?.id)+"|"+
+      String(a.team?.id)+"|"+
+      new Date(e.date).getTime(),
+      {
+       home:h.team?.abbreviation?.toUpperCase(),
+       away:a.team?.abbreviation?.toUpperCase()
+      }
+     );
+    }
+   });
+
+   let winN=0,winCorrect=0,brier=0;
+   let coverN=0,coverCorrect=0,pushes=0;
+   let missingLine=0;
+
+   for(const g of events){
+    const calc=calculate(g,events,prior);
+    if(!calc)continue;
+
+    winN++;
+    const actual=g.margin>0?1:0;
+
+    if((calc.homeWin>=0.5)===(actual===1))
+     winCorrect++;
+
+    brier+=(calc.homeWin-actual)**2;
+
+    const code=perGame.get(
+     g.home+"|"+g.away+"|"+g.time
+    );
+
+    if(code){
+     g.homeAb=code.home;
+     g.awayAb=code.away;
+    }
+
+    const line=lineOf(g);
+
+    if(line===null||calc.expected===null){
+     missingLine++;
+     continue;
+    }
+
+    const result=g.margin+line;
+    if(Math.abs(result)<0.0001){
+     pushes++;
+     continue;
+    }
+
+    const homeCover=normalCDF(
+     (calc.expected+line)/12
+    );
+
+    coverN++;
+
+    if((homeCover>=0.5)===(result>0))
+     coverCorrect++;
+   }
+
+   report.textContent=
+    "Sports AI 現有策略回放\n"+
+    "測試日期：2026/10/20～10/25\n"+
+    "取得完賽："+events.length+" 場\n\n"+
+    "獨贏有效場數："+winN+"\n"+
+    "獨贏命中："+winCorrect+" 場\n"+
+    "獨贏命中率："+(
+     winN?(winCorrect/winN*100).toFixed(1)+"%":"無資料"
+    )+"\n"+
+    "Brier Score："+(
+     winN?(brier/winN).toFixed(4):"無資料"
+    )+"\n\n"+
+    "讓分有效場數："+coverN+"\n"+
+    "模型選擇方向過盤："+coverCorrect+" 場\n"+
+    "過盤率："+(
+     coverN?
+     (coverCorrect/coverN*100).toFixed(1)+"%":
+     "無法計算"
+    )+"\n"+
+    "走盤："+pushes+" 場\n"+
+    "缺少盤口／分差資料："+missingLine+" 場\n\n"+
+    "注意：使用當時之前已完成的本季賽果，"+
+    "搭配上季期末戰績作為先驗。"+
+    "ESPN 的歷史盤口若沒有時間戳，"+
+    "只能視為回溯參考，不能當作已驗證賽前盤口。"+
+    "這是探索性回放，並非嚴格無偏差回測。";
+
+  }catch(e){
+   report.textContent=
+    "回測無法完成："+e.message+
+    "\n未產生虛構結果。";
+  }finally{
+   btn.disabled=false;
+   btn.textContent="▶ 重新回測目前策略";
+  }
+ };
+})();
+</script>
+
+ 
 </body>
 </html>
 
