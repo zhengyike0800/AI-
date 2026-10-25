@@ -551,10 +551,14 @@ function gameCard(g){
     </tbody>
    </table>
 
-   <div class="analysis">
-    <b>AI 分析</b>
-    <div>${esc(summary)}</div>
-   </div>
+   
+   <details class="analysis">
+    <summary>🧠 查看 AI 分析</summary>
+    <div style="margin-top:12px">
+     ${esc(summary)}
+    </div>
+   </details>
+
 
    <div class="meta">
     盤口來源：${esc(o.source)}（時間未驗證）<br>
