@@ -1,176 +1,67 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
-<head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080c16">
-<title>Sports AI 賽事分析</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sports AI v0.2</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#080c16;color:#f3f5fb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif}
-header{padding:24px 20px 18px;background:linear-gradient(140deg,#172038,#080c16)}
-.logo{font-size:30px;font-weight:900;letter-spacing:1px}
-.logo span{color:#ff3655}
-.sub{font-size:12px;color:#9aa7ba;margin-top:5px}
-.top{display:flex;justify-content:space-between;align-items:center}
-.tag{font-size:12px;border:1px solid #643047;border-radius:30px;padding:9px;color:#ffc4ce}
-.tabs{display:flex;padding:6px 12px;background:#111827;gap:7px}
-.tabs button{flex:1}
-button{font:inherit;cursor:pointer;border:0;color:#c7d0df;background:#1b2535;padding:12px;border-radius:12px}
-button.active,.primary{background:linear-gradient(120deg,#ff3151,#a91132);color:white}
-main{max-width:650px;margin:auto;padding:16px 14px 110px}
-h2{font-size:20px;margin:10px 0}
-.muted{color:#9aa7ba;font-size:12px;line-height:1.6}
-.controls{display:flex;gap:8px;margin:16px 0}
-.controls button{flex:1;font-size:13px}
-.card{border:1px solid #28374c;background:linear-gradient(155deg,#141f32,#0c1423);border-radius:19px;padding:15px;margin:13px 0;box-shadow:0 8px 22px #0003}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.pill{display:inline-block;background:#521729;color:#ffb7c2;padding:7px 11px;border-radius:20px;font-size:12px}
-.league{font-size:12px;color:#9caac0;margin:12px 0}
-.teams{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0}
-.team{width:42%;text-align:center;font-weight:700;font-size:17px}
-.team small{display:block;font-size:11px;color:#98a7bd;font-weight:400;margin-top:5px}
-.vs{font-size:13px;color:#71839c}
-.bar{height:7px;border-radius:9px;background:#27374d;overflow:hidden;margin-top:12px}
-.bar div{height:100%;background:#ff3655}
-.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:14px}
-.metric{padding:11px 5px;text-align:center;border-radius:10px;background:#1b2639}
-.metric strong{display:block;font-size:16px;margin-bottom:5px}
-.metric small{color:#9dacbf;font-size:10px}
-.actions{display:flex;gap:8px;margin-top:13px}
-.actions button{flex:1;font-size:13px}
-.notice{border:1px solid #70404b;color:#e7b4bf;border-radius:12px;padding:12px;font-size:12px;line-height:1.7;margin-top:15px}
-nav{position:fixed;bottom:0;left:0;width:100%;display:flex;justify-content:space-around;background:#0d1524;border-top:1px solid #273349;padding:12px 0 max(15px,env(safe-area-inset-bottom))}
-nav button{background:none;padding:5px 8px;font-size:12px}
-nav button.active{background:none;color:#ff3655}
-.hidden{display:none}
-dialog{background:#121c2d;color:white;border:1px solid #48566b;border-radius:18px;width:min(92%,480px);padding:22px}
-dialog::backdrop{background:#000b}
-.close{float:right}
-input{width:100%;background:#1d293b;color:white;border:1px solid #43516a;border-radius:10px;padding:12px;font-size:16px}
+body{margin:0;background:#090e19;color:white;font-family:Arial,sans-serif}
+header{padding:28px 20px;background:#172136;font-size:30px;font-weight:bold}
+header span{color:#ff3655}
+main{padding:18px}
+button{background:#ec284b;color:white;border:0;padding:12px;border-radius:10px;margin:4px}
+.card{background:#172238;border:1px solid #38475e;border-radius:16px;padding:18px;margin:15px 0}
+.logo{width:65px;height:65px;object-fit:contain}
+.teams{display:flex;justify-content:space-around;text-align:center;align-items:center}
+small{color:#aab6c9}
 </style>
-</head>
-<body>
-<header>
- <div class="top">
-  <div>
-   <div class="logo">賽事 <span>AI</span></div>
-   <div class="sub">SPORTS INTELLIGENCE · 勝率研究中心</div>
-  </div>
-  <div class="tag">🇹🇼 台灣時間</div>
- </div>
-</header>
-<div class="tabs">
- <button class="active" onclick="setMarket('PK',this)">PK盤</button>
- <button onclick="setMarket('讓分',this)">讓分盤</button>
- <button onclick="setMarket('大小',this)">大小分盤</button>
-</div>
+<header>賽事 <span>AI</span></header>
 <main>
- <div class="row">
-  <div>
-   <h2 id="heading">NBA 明日賽事</h2>
-   <div class="muted">2026/10/26（一）· 台灣時間</div>
-  </div>
-  <span class="pill" id="count">7 場比賽</span>
- </div>
- <div class="controls">
-  <button class="active" id="allBtn" onclick="showAll()">全部賽事</button>
-  <button id="favBtn" onclick="showFav()">★ 我的收藏</button>
- </div>
- <div class="notice">
-  目前為真實賽程＋分析介面測試版。尚未接入可靠的勝率模型、即時賠率、傷兵或盤口資料，因此不會顯示虛構的 AI 勝率或投注推薦。
- </div>
- <div id="games"></div>
+<h2>NBA 賽程與比分</h2>
+<button onclick="change(-1)">前一天</button>
+<button onclick="change(0)">今天</button>
+<button onclick="change(1)">後一天</button>
+<button onclick="load()">重新整理</button>
+<p id="date"></p>
+<p id="status">準備載入賽程</p>
+<div id="games"></div>
 </main>
-<nav>
- <button class="active" onclick="showAll()">⌂<br>首頁</button>
- <button onclick="info()">▥<br>比分</button>
- <button onclick="showAll()">▦<br>賽事</button>
- <button onclick="showFav()">☆<br>收藏</button>
- <button onclick="info()">♙<br>我的</button>
-</nav>
-<dialog id="detail">
- <button class="close" onclick="document.getElementById('detail').close()">✕</button>
- <h2 id="detailTitle"></h2>
- <div id="detailBody"></div>
- <button class="primary" style="width:100%;margin-top:20px" onclick="document.getElementById('detail').close()">返回賽事列表</button>
-</dialog>
 <script>
-const games=[
-{id:1,time:"05:00",away:"湖人",home:"爵士",a:"LAL",h:"UTA"},
-{id:2,time:"06:00",away:"溜馬",home:"籃網",a:"IND",h:"BKN"},
-{id:3,time:"07:00",away:"暴龍",home:"灰狼",a:"TOR",h:"MIN"},
-{id:4,time:"07:00",away:"魔術",home:"尼克",a:"ORL",h:"NYK"},
-{id:5,time:"07:00",away:"快艇",home:"雷霆",a:"LAC",h:"OKC"},
-{id:6,time:"07:30",away:"活塞",home:"76人",a:"DET",h:"PHI"},
-{id:7,time:"09:00",away:"灰熊",home:"國王",a:"MEM",h:"SAC"}
-];
-let market="PK", onlyFav=false;
-let favorites=[];
-try{favorites=JSON.parse(localStorage.getItem("sports_favs")||"[]");if(!Array.isArray(favorites))favorites=[]}catch(e){favorites=[]}
-function setMarket(v,btn){
- market=v;
- document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
- btn.classList.add("active");
- render();
+let offset=0;
+const names={LAL:"湖人",UTA:"爵士",GS:"勇士",GSW:"勇士",BOS:"塞爾提克",OKC:"雷霆",MIN:"灰狼",NY:"尼克",NYK:"尼克",PHI:"76人"};
+function change(n){offset=n;load()}
+function getDate(){
+let s=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+let [y,m,d]=s.split("-").map(Number);
+let dt=new Date(Date.UTC(y,m-1,d+offset));
+return dt.toISOString().slice(0,10).replaceAll("-","");
 }
-function showAll(){
- onlyFav=false;render();
+async function load(){
+let date=getDate();
+document.getElementById("date").textContent="台灣日期："+date;
+document.getElementById("status").textContent="正在讀取 NBA 資料…";
+document.getElementById("games").innerHTML="";
+try{
+let r=await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates="+date);
+if(!r.ok)throw Error("HTTP "+r.status);
+let data=await r.json();
+let events=data.events||[];
+document.getElementById("status").textContent="已載入 "+events.length+" 場賽事";
+events.forEach(e=>{
+let c=e.competitions?.[0]?.competitors||[];
+let away=c.find(x=>x.homeAway==="away");
+let home=c.find(x=>x.homeAway==="home");
+if(!away||!home)return;
+let team=x=>`<div><img class="logo" src="${x.team.logo||""}" alt=""><p>${names[x.team.abbreviation]||x.team.displayName}</p><small>${x.score??"-"}</small></div>`;
+let box=document.createElement("div");
+box.className="card";
+let time=new Date(e.date).toLocaleString("zh-TW",{timeZone:"Asia/Taipei",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+box.innerHTML=`<small>${time} · ${e.status?.type?.description||"NBA"}</small><div class="teams">${team(away)}<b>VS</b>${team(home)}</div>`;
+document.getElementById("games").appendChild(box);
+});
+}catch(e){
+document.getElementById("status").textContent="連線失敗："+e.message;
 }
-function showFav(){
- onlyFav=true;render();
 }
-function toggleFav(id){
- favorites=favorites.includes(id)?favorites.filter(x=>x!==id):[...favorites,id];
- try{localStorage.setItem("sports_favs",JSON.stringify(favorites))}catch(e){}
- render();
-}
-function render(){
- document.getElementById("allBtn").classList.toggle("active",!onlyFav);
- document.getElementById("favBtn").classList.toggle("active",onlyFav);
- const list=onlyFav?games.filter(g=>favorites.includes(g.id)):games;
- document.getElementById("count").textContent=list.length+" 場比賽";
- document.getElementById("heading").textContent=onlyFav?"我的收藏":"NBA 明日賽事";
- document.getElementById("games").innerHTML=list.map(g=>`
- <section class="card">
-  <div class="row"><span class="pill">NBA · ${market}分析</span><span class="muted">10/26　${g.time}</span></div>
-  <div class="league">美國職籃 · 賽前分析</div>
-  <div class="teams">
-   <div class="team">🏀 ${g.away}<small>${g.a} · 客隊</small></div>
-   <span class="vs">VS</span>
-   <div class="team">🏀 ${g.home}<small>${g.h} · 主隊</small></div>
-  </div>
-  <div class="metrics">
-   <div class="metric"><strong>—</strong><small>模型勝率</small></div>
-   <div class="metric"><strong>—</strong><small>${market==="PK"?"獨贏賠率":market==="讓分"?"讓分盤口":"總分盤口"}</small></div>
-   <div class="metric"><strong>待分析</strong><small>預測狀態</small></div>
-  </div>
-  <div class="actions">
-   <button class="primary" onclick="details(${g.id})">查看分析 →</button>
-   <button onclick="toggleFav(${g.id})">${favorites.includes(g.id)?"★ 已收藏":"☆ 收藏"}</button>
-  </div>
- </section>`).join("")||'<p class="muted">目前沒有收藏賽事。</p>';
-}
-function details(id){
- const g=games.find(x=>x.id===id);
- document.getElementById("detailTitle").textContent=g.away+" VS "+g.home;
- document.getElementById("detailBody").innerHTML=`
- <p class="muted">NBA · 2026/10/26 ${g.time} · 台灣時間</p>
- <p>目前盤口：${market}</p>
- <div class="metrics">
- <div class="metric"><strong>—</strong><small>客隊勝率</small></div>
- <div class="metric"><strong>—</strong><small>主隊勝率</small></div>
- <div class="metric"><strong>—</strong><small>期望值 EV</small></div>
- </div>
- <h3>賽前分析</h3>
- <p class="muted">已確認賽程，但球隊近期攻防效率、球員傷病、預計先發和市場賠率尚未串接，因此目前沒有足夠資料做出可信的勝率預測。</p>
- <p class="muted">未來計算方式：整合球隊實力評級、主客場、休息天數、傷兵及盤口，再透過歷史賽季資料進行驗證與機率校準。</p>
- <div class="notice">分析不保證賽事結果。未驗證模型的百分比不應視為投注依據。</div>`;
- document.getElementById("detail").showModal();
-}
-function info(){alert("此功能將於下一版本加入。")}
-render();
+load();
 </script>
-</body>
 </html>
