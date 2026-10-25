@@ -625,7 +625,9 @@ function gameCard(g){
   const sp=s.home>s.away?teamName(h):teamName(a);
 
   summary="獨贏模型偏向"+wp+
-   "；讓分模型偏向"+sp+"。";
+ "；讓分模型偏向"+sp+"。"+
+ "目前策略尚未通過足夠的歷史驗證，"+
+ "投注建議：觀望。";
  }else if(w){
   summary="獨贏模型已計算；讓分資料不足。";
  }else{
