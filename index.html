@@ -1,15 +1,13 @@
 
 
 
-
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a101e">
-<title>Sports AI v1.3</title>
+<title>Sports AI v1.6</title>
 <style>
 :root{
  --bg:#0a101e;--card:#111b2e;
@@ -23,52 +21,56 @@ body{
  "Noto Sans TC",sans-serif
 }
 header{
- background:linear-gradient(135deg,#202940,#0b1120);
- padding:20px 16px
+ padding:20px 16px;
+ background:linear-gradient(135deg,#202940,#0b1120)
 }
 .brand{font-size:27px;font-weight:850}
 .brand b{color:var(--red)}
-small{font-size:12px;color:var(--muted)}
-main{max-width:640px;margin:auto;padding:15px 12px 110px}
-h2{font-size:20px;margin:0 0 5px}
+small{color:var(--muted);font-size:12px}
+main{
+ max-width:640px;margin:auto;
+ padding:15px 12px 115px
+}
 .row{
  display:flex;align-items:center;
  justify-content:space-between;gap:8px
 }
+h2{font-size:20px;margin:0 0 5px}
 .chip{
  color:#ffd9df;background:#5b2339;
  padding:7px 10px;border-radius:20px;font-size:12px
 }
 button,input{font:inherit}
 button{
- border:0;background:#243149;color:white;
- border-radius:10px;padding:11px;cursor:pointer
+ border:0;border-radius:10px;
+ padding:11px;background:#243149;color:#fff
 }
+.primary{background:#e43153}
 .controls{display:flex;gap:7px;margin:14px 0}
 .controls button{flex:1;font-size:12px}
-.primary{background:#e43153}
 .search{
- width:100%;background:#202c40;
- border:1px solid #40516a;border-radius:10px;
- color:white;padding:12px;font-size:16px
+ width:100%;padding:12px;font-size:16px;
+ background:#202c40;color:#fff;
+ border:1px solid #40516a;border-radius:10px
 }
 .status{
  margin:12px 0;color:#b4c1d3;
- font-size:12px;line-height:1.6
+ font-size:12px;line-height:1.7
 }
 .card{
- background:#111b2e;border:1px solid #4d3549;
- border-radius:17px;overflow:hidden;margin:13px 0
+ margin:13px 0;background:#111b2e;
+ border:1px solid #4d3549;
+ border-radius:17px;overflow:hidden
 }
 .cardhead{
- background:linear-gradient(100deg,#f43b60,#b71f43);
- padding:11px 14px;font-size:13px;font-weight:750
+ padding:11px 14px;font-size:13px;font-weight:750;
+ background:linear-gradient(100deg,#f43b60,#b71f43)
 }
 .content{padding:14px}
 .teams{
  display:grid;grid-template-columns:1fr 32px 1fr;
- align-items:center;gap:8px;
- text-align:center;margin:8px 0 15px
+ align-items:center;text-align:center;
+ gap:8px;margin:8px 0 15px
 }
 .team img{
  width:56px;height:56px;
@@ -98,7 +100,19 @@ button{
 .analysis{
  background:#1c2940;border-radius:10px;
  padding:12px;margin-top:12px;
- font-size:13px;line-height:1.7
+ font-size:13px;line-height:1.75
+}
+.analysis summary{
+ list-style:none;cursor:pointer;
+ display:flex;align-items:center;
+ justify-content:space-between
+}
+.analysis summary::-webkit-details-marker{display:none}
+.analysis summary:after{content:"⌄";font-size:18px}
+.analysis[open] summary:after{content:"⌃"}
+.analysis .detail{
+ border-top:1px solid #3b4b64;
+ padding-top:12px;margin-top:12px
 }
 .analysis b{color:#ff8ba0}
 .meta{
@@ -110,22 +124,24 @@ button{
  font-size:12px;padding:8px 12px
 }
 .empty{
- color:var(--muted);padding:28px;
- text-align:center
+ color:var(--muted);padding:28px;text-align:center
 }
 .hidden{display:none!important}
 nav{
  position:fixed;bottom:0;left:0;width:100%;
  display:grid;grid-template-columns:repeat(5,1fr);
  background:#101a2b;border-top:1px solid #2f3c50;
- padding:8px 4px max(12px,env(safe-area-inset-bottom))
+ padding:8px 4px max(12px,env(safe-area-inset-bottom));
+ z-index:5
 }
 nav button{
  background:none;font-size:11px;
  color:#aab8cd;padding:3px
 }
 nav button.active{color:#ff718d}
-nav span{display:block;font-size:21px;margin-bottom:3px}
+nav span{
+ display:block;font-size:21px;margin-bottom:3px
+}
 </style>
 </head>
 <body>
@@ -155,37 +171,53 @@ nav span{display:block;font-size:21px;margin-bottom:3px}
   <button id="refresh">⟳</button>
  </div>
 
- <input id="search" class="search" placeholder="搜尋球隊">
+ <input id="search" class="search"
+ placeholder="搜尋球隊">
 
- <div class="status" id="status">正在載入資料…</div>
+ <div id="status" class="status">
+ 正在讀取 NBA 資料…
+ </div>
+
  <div id="cards"></div>
 
  <div id="settings" class="hidden">
   <div class="analysis">
-   <b>Sports AI v1.3</b>
-   <p>開啟 App 時更新，開啟期間每五分鐘更新。</p>
+   <b>Sports AI v1.6</b>
+   <p>開啟網站時更新，開啟期間每五分鐘更新。</p>
    <p>
-   獨贏勝率：戰績與主場研究模型。<br>
-   讓分勝率：歷史場均分差及固定分差波動試算。<br>
-   兩種勝率都尚未通過歷史校準。
+    獨贏與讓分採用不同模型。
+    所有模型機率仍未經完整歷史校準。
    </p>
-   <p>傷兵及先發陣容尚未接入。</p>
+   <p>
+    傷兵資訊在背景嘗試核對。
+    未確認的名單不會參與勝率計算。
+   </p>
    <button id="clear">清空收藏</button>
   </div>
  </div>
 
  <small>
- ESPN 公開資料；盤口可能延遲。
- 模型僅供研究，不是投注建議。
+ ESPN 公開資料。模型僅供研究，
+ 並非已驗證的投注建議。
  </small>
 </main>
 
 <nav>
- <button class="active" data-page="home"><span>⌂</span>首頁</button>
- <button data-page="scores"><span>▥</span>比分</button>
- <button data-page="schedule"><span>▦</span>賽事</button>
- <button data-page="favs"><span>☆</span>收藏</button>
- <button data-page="mine"><span>♙</span>我的</button>
+ <button class="active" data-page="home">
+  <span>⌂</span>首頁
+ </button>
+ <button data-page="scores">
+  <span>▥</span>比分
+ </button>
+ <button data-page="schedule">
+  <span>▦</span>賽事
+ </button>
+ <button data-page="favs">
+  <span>☆</span>收藏
+ </button>
+ <button data-page="mine">
+  <span>♙</span>我的
+ </button>
 </nav>
 
 <script>
@@ -193,105 +225,130 @@ nav span{display:block;font-size:21px;margin-bottom:3px}
 
 const $=id=>document.getElementById(id);
 
-const SCORE=
-"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=";
-
-const TABLE=
-"https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=";
+const API="https://site.api.espn.com/apis/site/v2/sports/basketball/nba/";
+const STANDINGS=
+ "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=";
 
 const ZH={
- ATL:"老鷹",BOS:"塞爾提克",
- BKN:"籃網",BRK:"籃網",CHA:"黃蜂",
- CHI:"公牛",CLE:"騎士",DAL:"獨行俠",
- DEN:"金塊",DET:"活塞",GS:"勇士",
- GSW:"勇士",HOU:"火箭",IND:"溜馬",
- LAC:"快艇",LAL:"湖人",MEM:"灰熊",
- MIA:"熱火",MIL:"公鹿",MIN:"灰狼",
- NO:"鵜鶘",NOP:"鵜鶘",NY:"尼克",
- NYK:"尼克",OKC:"雷霆",ORL:"魔術",
- PHI:"76人",PHX:"太陽",POR:"拓荒者",
- SA:"馬刺",SAS:"馬刺",SAC:"國王",
- TOR:"暴龍",UTA:"爵士",UTAH:"爵士",
- WAS:"巫師",WSH:"巫師"
+ ATL:"老鷹",BOS:"塞爾提克",BKN:"籃網",
+ BRK:"籃網",CHA:"黃蜂",CHI:"公牛",
+ CLE:"騎士",DAL:"獨行俠",DEN:"金塊",
+ DET:"活塞",GS:"勇士",GSW:"勇士",
+ HOU:"火箭",IND:"溜馬",LAC:"快艇",
+ LAL:"湖人",MEM:"灰熊",MIA:"熱火",
+ MIL:"公鹿",MIN:"灰狼",NO:"鵜鶘",
+ NOP:"鵜鶘",NY:"尼克",NYK:"尼克",
+ OKC:"雷霆",ORL:"魔術",PHI:"76人",
+ PHX:"太陽",POR:"拓荒者",SA:"馬刺",
+ SAS:"馬刺",SAC:"國王",TOR:"暴龍",
+ UTA:"爵士",UTAH:"爵士",WAS:"巫師",
+ WSH:"巫師"
 };
 
-let offset=0,page="home",games=[],request=0;
-let prevData=new Map(),nowData=new Map();
-let lastUpdated=null, fav=[];
+let offset=0,page="home",games=[];
+let lastUpdated=null,request=0;
+let previousStats=new Map();
+let currentStats=new Map();
+let injuryData=new Map();
+let injuryState="尚未核實";
+let fav=[];
 
 try{
- const saved=JSON.parse(
+ const f=JSON.parse(
   localStorage.getItem("sportsai_fav_v1")||"[]"
  );
- if(Array.isArray(saved))fav=saved;
+ if(Array.isArray(f))fav=f;
 }catch(e){}
 
-function esc(s){
- return String(s??"").replace(/[&<>"']/g,c=>({
+function esc(v){
+ return String(v??"").replace(/[&<>"']/g,c=>({
   "&":"&amp;","<":"&lt;",">":"&gt;",
   '"':"&quot;","'":"&#39;"
  }[c]));
 }
 
-function dateTW(d){
- const p=new Intl.DateTimeFormat("en-US",{
+function localDate(d){
+ const parts=new Intl.DateTimeFormat("en-US",{
   timeZone:"Asia/Taipei",year:"numeric",
   month:"2-digit",day:"2-digit"
  }).formatToParts(d);
- const a={};
- p.forEach(x=>a[x.type]=x.value);
- return a.year+"-"+a.month+"-"+a.day;
+ const o={};
+ for(const p of parts)o[p.type]=p.value;
+ return `${o.year}-${o.month}-${o.day}`;
 }
 
 function selected(){
- const [y,m,d]=dateTW(new Date()).split("-").map(Number);
+ const [y,m,d]=localDate(new Date())
+  .split("-").map(Number);
  return new Date(Date.UTC(y,m-1,d+offset))
   .toISOString().slice(0,10);
 }
 
-function timeTW(v){
+function twTime(date){
  return new Intl.DateTimeFormat("zh-TW",{
   timeZone:"Asia/Taipei",
   month:"2-digit",day:"2-digit",
   hour:"2-digit",minute:"2-digit",
   hour12:false
- }).format(new Date(v));
+ }).format(new Date(date));
 }
 
 function teamName(c){
- return ZH[c?.team?.abbreviation]||
-  c?.team?.displayName||"未知球隊";
+ const t=c?.team||{};
+ return ZH[t.abbreviation]||t.displayName||"未知球隊";
 }
 
 function state(g){
- const s=g.status?.type?.state;
- return s==="post"?"已完賽":
-  s==="in"?"進行中":"尚未開賽";
+ const t=g.status?.type?.state;
+ return t==="post"?"已完賽":
+  t==="in"?"進行中":"尚未開賽";
 }
 
 async function getJSON(url){
- const ctrl=new AbortController();
- const timer=setTimeout(()=>ctrl.abort(),15000);
+ const ctl=new AbortController();
+ const timer=setTimeout(()=>ctl.abort(),16000);
  try{
   const r=await fetch(url,{
-   cache:"no-store",signal:ctrl.signal
+   cache:"no-store",signal:ctl.signal
   });
   if(!r.ok)throw Error("HTTP "+r.status);
   return await r.json();
- }finally{clearTimeout(timer)}
+ }finally{
+  clearTimeout(timer);
+ }
 }
 
-function getStat(stats,keys){
+function stat(stats,names){
+ const normalize=x=>String(x||"")
+  .toLowerCase().replace(/[^a-z0-9]/g,"");
+
  const s=(stats||[]).find(x=>
-  keys.includes(String(x.name||"").toLowerCase())||
-  keys.includes(String(x.abbreviation||"").toLowerCase())
+  names.includes(normalize(x.name))||
+  names.includes(normalize(x.abbreviation))
  );
+
  if(!s)return null;
- const n=Number(s.value??s.displayValue);
- return Number.isFinite(n)?n:null;
+ const v=Number(s.value??s.displayValue);
+ return Number.isFinite(v)?v:null;
 }
 
-function parseTable(data){
+function parseRecent(stats){
+ const x=(stats||[]).find(s=>{
+  const n=String(s.name||"").toLowerCase()
+   .replace(/[^a-z0-9]/g,"");
+  return n==="lasttengames"||n==="lastten";
+ });
+
+ const m=String(x?.displayValue||"")
+  .match(/(\d+)\s*-\s*(\d+)/);
+
+ if(!m)return null;
+ const w=+m[1],l=+m[2];
+ const n=w+l;
+ return n>=5&&n<=10?w/n:null;
+}
+
+function parseStandings(data){
  const map=new Map();
 
  function walk(node){
@@ -303,44 +360,36 @@ function parseTable(data){
   for(const e of node.entries||[]){
    const t=e.team||{};
    const s=e.stats||[];
-
-   const w=getStat(s,["wins","w"]);
-   const l=getStat(s,["losses","l"]);
-
-   const pf=getStat(s,[
-    "avgpointsfor","avg points for",
-    "avg_points_for"
-   ]);
-   const pa=getStat(s,[
-    "avgpointsagainst","avg points against",
-    "avg_points_against"
-   ]);
-
-   const diffTotal=getStat(s,[
-    "pointdifferential","point differential",
-    "point_differential","differential"
-   ]);
+   const w=stat(s,["wins","w"]);
+   const l=stat(s,["losses","l"]);
 
    if(!t.id||w===null||l===null)continue;
    const n=w+l;
 
-   let margin=null;
+   const pf=stat(s,["avgpointsfor"]);
+   const pa=stat(s,["avgpointsagainst"]);
+   const totalF=stat(s,["pointsfor"]);
+   const totalA=stat(s,["pointsagainst"]);
 
+   let margin=null;
    if(pf!==null&&pa!==null){
     margin=pf-pa;
-   }else if(diffTotal!==null&&n>0){
-    margin=diffTotal/n;
+   }else if(
+    n>0&&totalF!==null&&totalA!==null
+   ){
+    margin=(totalF-totalA)/n;
    }
 
    map.set(String(t.id),{
     w,l,n,p:n?w/n:0.5,
-    margin
+    margin,recent:parseRecent(s)
    });
   }
 
-  walk(node.children);
+  if(node.children)walk(node.children);
   if(node.standings)walk(node.standings);
  }
+
  walk(data);
  return map;
 }
@@ -350,131 +399,206 @@ function seasonYear(date){
  return m>=10?y+1:y;
 }
 
-function record(c,map){
+function teamRecord(c,map){
  return map.get(String(c.team?.id||""))||null;
 }
 
-function blend(old,now,key){
- const prior=12;
- const valid=now?.n||0;
+function blend(prior,current,key){
+ if(!Number.isFinite(prior?.[key]))return null;
+
+ const weight=12;
+ const n=current?.n||0;
+
+ if(!n||!Number.isFinite(current?.[key])){
+  return prior[key];
+ }
+
  return (
-  old[key]*prior+
-  (now&&Number.isFinite(now[key])?
-   now[key]*valid:old[key]*valid)
- )/(prior+valid);
+  prior[key]*weight+
+  current[key]*n
+ )/(weight+n);
 }
 
-// 研究用獨贏模型
+// 獨贏機率：戰績與近期表現研究模型。
+// 參數未經完整歷史校準。
 function winModel(a,h){
- const ap=record(a,prevData);
- const hp=record(h,prevData);
+ const ap=teamRecord(a,previousStats);
+ const hp=teamRecord(h,previousStats);
+
  if(!ap||!hp||ap.n<20||hp.n<20)return null;
 
- const ac=record(a,nowData);
- const hc=record(h,nowData);
+ const ac=teamRecord(a,currentStats);
+ const hc=teamRecord(h,currentStats);
 
  const away=blend(ap,ac,"p");
  const home=blend(hp,hc,"p");
 
- const p=1/(1+Math.exp(
-  -(2.4*(home-away)+0.12)
- ));
+ let logit=2.4*(home-away)+0.12;
 
+ if(
+  Number.isFinite(ac?.recent)&&
+  Number.isFinite(hc?.recent)
+ ){
+  logit+=0.5*(hc.recent-ac.recent);
+ }
+
+ const p=1/(1+Math.exp(-logit));
  return {home:p,away:1-p};
 }
 
-// 標準常態分布累積機率的近似值
 function normalCDF(z){
  const x=Math.abs(z);
  const t=1/(1+0.2316419*x);
  const d=0.3989422804*Math.exp(-x*x/2);
+
  const tail=d*t*(
   0.319381530+t*(-0.356563782+
   t*(1.781477937+t*(-1.821255978+
   t*1.330274429)))
  );
+
  return z>=0?1-tail:tail;
 }
 
-// 研究用讓分模型：預測主隊分差。
-// 主場 +2.5 分、標準差 12 分是模型假設，
-// 並非經過歷史驗證的 NBA 固定值。
-function spreadModel(a,h,homeSpread){
- const ap=record(a,prevData);
- const hp=record(h,prevData);
- if(!ap||!hp||
-    !Number.isFinite(ap.margin)||
-    !Number.isFinite(hp.margin))return null;
+// 讓分機率：歷史平均分差加主場假設。
+// 標準差12分是尚未校準的研究參數。
+function coverModel(a,h,homeLine){
+ const ap=teamRecord(a,previousStats);
+ const hp=teamRecord(h,previousStats);
 
- const ac=record(a,nowData);
- const hc=record(h,nowData);
+ if(
+  !Number.isFinite(ap?.margin)||
+  !Number.isFinite(hp?.margin)
+ )return null;
 
- const aMargin=blend(ap,ac,"margin");
- const hMargin=blend(hp,hc,"margin");
+ const ac=teamRecord(a,currentStats);
+ const hc=teamRecord(h,currentStats);
 
- const expected=(hMargin-aMargin)/2+2.5;
- const homeCover=normalCDF(
-  (expected+homeSpread)/12
- );
+ const am=blend(ap,ac,"margin");
+ const hm=blend(hp,hc,"margin");
 
- return {
-  home:homeCover,
-  away:1-homeCover,
-  expected
- };
+ const expected=(hm-am)/2+2.5;
+ const p=normalCDF((expected+homeLine)/12);
+
+ return {home:p,away:1-p,expected};
 }
 
 function market(g,a,h){
  const o=g.competitions?.[0]?.odds?.[0];
  const detail=String(o?.details||"").trim();
+
  const m=detail.match(
   /^([A-Z]{2,5})\s*([+-]\d+(?:\.\d+)?)$/i
  );
 
- let awayLine=null,homeLine=null;
+ let away=null,home=null;
 
  if(m){
-  const code=m[1].toUpperCase();
-  const n=Number(m[2]);
-  const ac=String(a.team?.abbreviation||"").toUpperCase();
-  const hc=String(h.team?.abbreviation||"").toUpperCase();
+  const ab=m[1].toUpperCase();
+  const val=Number(m[2]);
+  const aa=String(a.team?.abbreviation||"")
+   .toUpperCase();
+  const ha=String(h.team?.abbreviation||"")
+   .toUpperCase();
 
-  if(code===ac){
-   awayLine=n;homeLine=-n;
-  }else if(code===hc){
-   homeLine=n;awayLine=-n;
+  if(ab===aa){
+   away=val;home=-val;
+  }else if(ab===ha){
+   home=val;away=-val;
   }
  }
 
  return {
-  awayLine,homeLine,
+  away,home,
   source:o?.provider?.name||"未提供"
  };
 }
 
-function fmtLine(v){
- if(v===null||!Number.isFinite(v))return "—";
- return v>0?"+"+v:String(v);
+// 傷兵資料：只接受有可靠球隊識別的紀錄。
+// 不把無法匹配球隊的資料強行分配。
+function parseInjuries(data){
+ const map=new Map();
+ const groups=Array.isArray(data?.injuries)?
+  data.injuries:[];
+
+ for(const group of groups){
+  const rawTeam=group.team||{};
+  const teamId=String(
+   rawTeam.id||group.teamId||""
+  );
+
+  const rows=group.injuries||[];
+
+  for(const entry of rows){
+   const player=entry.athlete||{};
+   const entryTeam=entry.team||player.team||{};
+
+   const id=String(
+    entryTeam.id||teamId||""
+   );
+
+   const name=String(
+    player.displayName||
+    player.fullName||
+    entry.displayName||""
+   ).trim();
+
+   const raw=entry.status;
+   const status=typeof raw==="string"?
+    raw:String(raw?.name||raw?.type||"");
+
+   if(!id||!name||!status)continue;
+
+   if(!map.has(id))map.set(id,[]);
+   map.get(id).push({name,status});
+  }
+ }
+
+ return map;
 }
 
-function fmtP(v){
- if(v===null||!Number.isFinite(v))return "待計算";
- return (100*v).toFixed(1)+"%";
+function injurySummary(a,h){
+ if(injuryState!=="已核對來源"){
+  return "傷兵來源尚未完成核對，未納入模型。";
+ }
+
+ const ai=injuryData.get(String(a.team?.id||""));
+ const hi=injuryData.get(String(h.team?.id||""));
+
+ if(!ai||!hi){
+  return "雙方傷兵資料未完整對應，未納入模型。";
+ }
+
+ return "已讀取雙方可對應的傷兵紀錄，"+
+  "但尚未驗證球員影響權重，勝率未作傷兵調整。";
+}
+
+function fmtP(n){
+ return Number.isFinite(n)?
+  (n*100).toFixed(1)+"%":"待計算";
+}
+
+function fmtLine(n){
+ return Number.isFinite(n)?
+  (n>0?"+":"")+n:"—";
 }
 
 function teamBox(c,played){
  const t=c.team||{};
- const image=t.logo||t.logos?.[0]?.href;
+ const logo=t.logo||t.logos?.[0]?.href;
 
  return `
  <div class="team">
- ${image?`<img src="${esc(image)}"
- alt="${esc(teamName(c))}隊徽">`:""}
- <div class="teamname">${esc(teamName(c))}</div>
- <small>${esc(t.abbreviation||"")}
- · ${c.homeAway==="home"?"主":"客"}</small>
- ${played?`<div class="score">
- ${esc(c.score??"—")}</div>`:""}
+  ${logo?`
+   <img src="${esc(logo)}"
+    alt="${esc(teamName(c))}隊徽">`:""}
+  <div class="teamname">${esc(teamName(c))}</div>
+  <small>${esc(t.abbreviation||"")}
+   · ${c.homeAway==="home"?"主":"客"}
+  </small>
+  ${played?`
+   <div class="score">${esc(c.score??"—")}</div>
+  `:""}
  </div>`;
 }
 
@@ -482,41 +606,41 @@ function gameCard(g){
  const c=g.competitions?.[0]?.competitors||[];
  const a=c.find(x=>x.homeAway==="away");
  const h=c.find(x=>x.homeAway==="home");
+
  if(!a||!h)return "";
 
  const played=state(g)!=="尚未開賽";
  const o=market(g,a,h);
 
- // 已開始的比賽不重新偽造賽前勝率
  const w=played?null:winModel(a,h);
+ const s=played||o.home===null?
+  null:coverModel(a,h,o.home);
 
- const s=played||o.homeLine===null?
-  null:spreadModel(a,h,o.homeLine);
-
- let summary;
+ let summary="";
 
  if(played){
-  summary="比賽已開始或完賽，停止產生新的賽前預測。";
+  summary="比賽已開始或完賽，停止新的賽前預測。";
  }else if(w&&s){
-  const winPick=w.home>w.away?teamName(h):teamName(a);
-  const coverPick=s.home>s.away?teamName(h):teamName(a);
-  summary="獨贏初步模型偏向"+winPick+
-   "；讓分研究模型偏向"+coverPick+
-   "。傷兵與先發尚未核實，預測可能調整。";
+  const wp=w.home>w.away?teamName(h):teamName(a);
+  const sp=s.home>s.away?teamName(h):teamName(a);
+
+  summary="獨贏模型偏向"+wp+
+   "；讓分模型偏向"+sp+"。";
  }else if(w){
-  summary="已有獨贏模型，但讓分盤口或分差資料不足，"+
-   "暫不公布過盤機率。";
+  summary="獨贏模型已計算；讓分資料不足。";
  }else{
-  summary="目前缺少模型所需的有效歷史資料，"+
-   "暫不公布勝率。";
+  summary="目前模型缺少必要的歷史資料。";
  }
+
+ const injuryNote=injurySummary(a,h);
 
  return `
  <article class="card">
   <div class="cardhead">
-   NBA · ${esc(timeTW(g.date))}
+   NBA · ${esc(twTime(g.date))}
    · ${esc(state(g))}
   </div>
+
   <div class="content">
    <div class="teams">
     ${teamBox(a,played)}
@@ -535,35 +659,34 @@ function gameCard(g){
     <tbody>
      <tr>
       <td>獨贏勝率</td>
-      <td class="big">${fmtP(w?.away??null)}</td>
-      <td class="big">${fmtP(w?.home??null)}</td>
+      <td class="big">${fmtP(w?.away)}</td>
+      <td class="big">${fmtP(w?.home)}</td>
      </tr>
      <tr>
       <td>真實讓分</td>
-      <td>${fmtLine(o.awayLine)}</td>
-      <td>${fmtLine(o.homeLine)}</td>
+      <td>${fmtLine(o.away)}</td>
+      <td>${fmtLine(o.home)}</td>
      </tr>
      <tr>
       <td>讓分勝率</td>
-      <td class="big">${fmtP(s?.away??null)}</td>
-      <td class="big">${fmtP(s?.home??null)}</td>
+      <td class="big">${fmtP(s?.away)}</td>
+      <td class="big">${fmtP(s?.home)}</td>
      </tr>
     </tbody>
    </table>
 
-   
    <details class="analysis">
     <summary>🧠 查看 AI 分析</summary>
-    <div style="margin-top:12px">
+    <div class="detail">
      ${esc(summary)}
+     ${esc(injuryNote)}
     </div>
    </details>
 
-
    <div class="meta">
-    盤口來源：${esc(o.source)}（時間未驗證）<br>
-    勝率為未校準的研究模型試算，
-    不是市場報價或已驗證的準確率。
+    資料：ESPN｜盤口：${esc(o.source)}<br>
+    盤口報價時間未驗證。<br>
+    勝率為未校準的研究模型估算。
    </div>
 
    <button class="fav" data-fav="${esc(g.id)}">
@@ -574,7 +697,7 @@ function gameCard(g){
 }
 
 function render(){
- const titles={
+ const labels={
   home:"NBA 賽事分析",
   scores:"NBA 比分",
   schedule:"NBA 賽程",
@@ -582,29 +705,30 @@ function render(){
   mine:"我的設定"
  };
 
- $("title").textContent=titles[page];
+ $("title").textContent=labels[page];
  $("dateLabel").textContent=selected()+" · 台灣日期";
 
  $("settings").classList.toggle("hidden",page!=="mine");
  $("cards").classList.toggle("hidden",page==="mine");
  $("search").classList.toggle("hidden",page==="mine");
 
- document.querySelectorAll("nav button").forEach(b=>
+ document.querySelectorAll("nav button").forEach(b=>{
   b.classList.toggle(
    "active",b.dataset.page===page
-  )
- );
+  );
+ });
 
  const q=$("search").value.toLowerCase().trim();
 
  const list=games.filter(g=>{
   const c=g.competitions?.[0]?.competitors||[];
-  const match=c.some(x=>
+
+  const matches=c.some(x=>
    (teamName(x)+" "+(x.team?.abbreviation||""))
    .toLowerCase().includes(q)
   );
 
-  return match&&
+  return matches&&
    (page!=="favs"||fav.includes(g.id))&&
    (page!=="scores"||
     g.status?.type?.state!=="pre");
@@ -615,67 +739,80 @@ function render(){
 
  $("cards").innerHTML=page==="mine"?"":(
   list.map(gameCard).join("")||
-  '<div class="empty">沒有符合條件的比賽</div>'
+  '<div class="empty">沒有符合條件的賽事</div>'
  );
 }
 
 async function load(){
  const token=++request;
- const date=selected();
+ const day=selected();
 
- const previous=new Date(
-  new Date(date+"T00:00:00Z").getTime()-86400000
+ const before=new Date(
+  new Date(day+"T00:00:00Z").getTime()-86400000
  ).toISOString().slice(0,10);
 
- const season=seasonYear(date);
- $("status").textContent="正在更新真實 NBA 資料…";
+ const season=seasonYear(day);
 
- const jobs=await Promise.allSettled([
-  getJSON(SCORE+previous.replace(/-/g,"")),
-  getJSON(SCORE+date.replace(/-/g,"")),
-  getJSON(TABLE+(season-1)),
-  getJSON(TABLE+season)
+ $("status").textContent="正在更新 NBA 資料…";
+
+ const results=await Promise.allSettled([
+  getJSON(API+"scoreboard?dates="+
+   before.replace(/-/g,"")),
+  getJSON(API+"scoreboard?dates="+
+   day.replace(/-/g,"")),
+  getJSON(STANDINGS+(season-1)),
+  getJSON(STANDINGS+season),
+  getJSON(API+"injuries")
  ]);
 
  if(token!==request)return;
 
  const matchMap=new Map();
- let validScore=0;
+ let scoreOK=0;
 
- for(const job of jobs.slice(0,2)){
-  if(job.status!=="fulfilled")continue;
-  validScore++;
+ for(const r of results.slice(0,2)){
+  if(r.status!=="fulfilled")continue;
+  scoreOK++;
 
-  for(const g of job.value.events||[]){
+  for(const g of r.value.events||[]){
    if(g.id&&g.date&&
-    dateTW(new Date(g.date))===date){
+    localDate(new Date(g.date))===day){
     matchMap.set(g.id,g);
    }
   }
  }
 
- if(validScore===0){
+ if(scoreOK===0){
   $("status").textContent=
-   "資料讀取失敗，請按重新整理。";
+   "賽程讀取失敗，請按 ⟳ 重新整理。";
   return;
  }
 
  games=[...matchMap.values()].sort(
-  (x,y)=>new Date(x.date)-new Date(y.date)
+  (a,b)=>new Date(a.date)-new Date(b.date)
  );
 
- prevData=jobs[2].status==="fulfilled"?
-  parseTable(jobs[2].value):new Map();
+ previousStats=results[2].status==="fulfilled"?
+  parseStandings(results[2].value):new Map();
 
- nowData=jobs[3].status==="fulfilled"?
-  parseTable(jobs[3].value):new Map();
+ currentStats=results[3].status==="fulfilled"?
+  parseStandings(results[3].value):new Map();
+
+ if(results[4].status==="fulfilled"){
+  injuryData=parseInjuries(results[4].value);
+  injuryState=injuryData.size?
+   "已核對來源":"缺少球隊對應";
+ }else{
+  injuryData=new Map();
+  injuryState="資料讀取失敗";
+ }
 
  lastUpdated=new Date();
 
  $("status").textContent=
-  "更新："+timeTW(lastUpdated)+
-  " · ESPN｜上季 "+prevData.size+
-  " 隊／本季 "+nowData.size+" 隊";
+  "更新："+twTime(lastUpdated)+
+  " · ESPN｜上季 "+previousStats.size+
+  " 隊／本季 "+currentStats.size+" 隊";
 
  render();
 }
@@ -697,8 +834,8 @@ document.querySelectorAll("nav button").forEach(b=>{
 $("cards").onclick=e=>{
  const b=e.target.closest("[data-fav]");
  if(!b)return;
- const id=b.dataset.fav;
 
+ const id=b.dataset.fav;
  fav=fav.includes(id)?
   fav.filter(x=>x!==id):[...fav,id];
 
@@ -714,7 +851,9 @@ $("cards").onclick=e=>{
 $("clear").onclick=()=>{
  if(confirm("清空所有收藏？")){
   fav=[];
-  localStorage.removeItem("sportsai_fav_v1");
+  try{
+   localStorage.removeItem("sportsai_fav_v1");
+  }catch(e){}
   render();
  }
 };
@@ -728,666 +867,10 @@ load();
 setInterval(()=>{
  if(!document.hidden)load();
 },300000);
+
 </script>
-
-<script>
-<script>
-/* Sports AI v1.4 - Data Model Update */
-(function(){
-
-function numberStat(stats,names){
- const item=(stats||[]).find(x=>{
-  const a=String(x.name||"")
-   .toLowerCase().replace(/[^a-z0-9]/g,"");
-  const b=String(x.abbreviation||"")
-   .toLowerCase().replace(/[^a-z0-9]/g,"");
-  return names.includes(a)||names.includes(b);
- });
-
- if(!item)return null;
-
- const n=Number(item.value??item.displayValue);
- return Number.isFinite(n)?n:null;
-}
-
-function recentRecord(stats){
- const item=(stats||[]).find(x=>{
-  const text=(
-   String(x.name||"")+" "+
-   String(x.abbreviation||"")
-  ).toLowerCase().replace(/[^a-z0-9]/g,"");
-
-  return text.includes("lasttengames")||
-   text==="l10"||
-   text.includes("lastten");
- });
-
- if(!item)return null;
-
- const value=String(item.displayValue||"");
- const match=value.match(/(\d+)\s*-\s*(\d+)/);
-
- if(!match)return null;
-
- const w=Number(match[1]);
- const l=Number(match[2]);
- const n=w+l;
-
- if(n<5||n>10)return null;
- return {w,l,n,p:w/n};
-}
-
-// 使用明確的場均得失分或總得失分。
-// 不把未知單位的 differential 當作總分差。
-parseTable=function(data){
- const output=new Map();
-
- function walk(node){
-  if(!node||typeof node!=="object")return;
-
-  if(Array.isArray(node)){
-   node.forEach(walk);
-   return;
-  }
-
-  for(const entry of node.entries||[]){
-   const team=entry.team||{};
-   const stats=entry.stats||[];
-
-   const w=numberStat(stats,["wins","w"]);
-   const l=numberStat(stats,["losses","l"]);
-
-   if(!team.id||w===null||l===null)continue;
-
-   const n=w+l;
-
-   const avgFor=numberStat(stats,[
-    "avgpointsfor"
-   ]);
-
-   const avgAgainst=numberStat(stats,[
-    "avgpointsagainst"
-   ]);
-
-   const totalFor=numberStat(stats,[
-    "pointsfor"
-   ]);
-
-   const totalAgainst=numberStat(stats,[
-    "pointsagainst"
-   ]);
-
-   let margin=null;
-
-   if(avgFor!==null&&avgAgainst!==null){
-    margin=avgFor-avgAgainst;
-   }else if(
-    n>0&&totalFor!==null&&
-    totalAgainst!==null
-   ){
-    margin=(totalFor-totalAgainst)/n;
-   }
-
-   output.set(String(team.id),{
-    w,l,n,
-    p:n?w/n:0.5,
-    margin,
-    recent:recentRecord(stats)
-   });
-  }
-
-  if(node.children)walk(node.children);
-  if(node.standings)walk(node.standings);
- }
-
- walk(data);
- return output;
-};
-
-// 獨贏模型加入最近十場戰績。
-// 係數仍屬研究假設，尚未完成校準。
-winModel=function(a,h){
- const ap=record(a,prevData);
- const hp=record(h,prevData);
-
- if(!ap||!hp||ap.n<20||hp.n<20)
-  return null;
-
- const ac=record(a,nowData);
- const hc=record(h,nowData);
-
- const away=blend(ap,ac,"p");
- const home=blend(hp,hc,"p");
-
- let logit=2.4*(home-away)+0.12;
-
- if(ac?.recent&&hc?.recent){
-  logit+=0.5*(
-   hc.recent.p-ac.recent.p
-  );
- }
-
- const p=1/(1+Math.exp(-logit));
-
- return {
-  home:p,
-  away:1-p
- };
-};
-
-})();
-</script>
-
-<script>
-/* Sports AI v1.4 - Data Model Update */
-(function(){
-
-function numberStat(stats,names){
- const item=(stats||[]).find(x=>{
-  const a=String(x.name||"")
-   .toLowerCase().replace(/[^a-z0-9]/g,"");
-  const b=String(x.abbreviation||"")
-   .toLowerCase().replace(/[^a-z0-9]/g,"");
-  return names.includes(a)||names.includes(b);
- });
-
- if(!item)return null;
-
- const n=Number(item.value??item.displayValue);
- return Number.isFinite(n)?n:null;
-}
-
-function recentRecord(stats){
- const item=(stats||[]).find(x=>{
-  const text=(
-   String(x.name||"")+" "+
-   String(x.abbreviation||"")
-  ).toLowerCase().replace(/[^a-z0-9]/g,"");
-
-  return text.includes("lasttengames")||
-   text==="l10"||
-   text.includes("lastten");
- });
-
- if(!item)return null;
-
- const value=String(item.displayValue||"");
- const match=value.match(/(\d+)\s*-\s*(\d+)/);
-
- if(!match)return null;
-
- const w=Number(match[1]);
- const l=Number(match[2]);
- const n=w+l;
-
- if(n<5||n>10)return null;
- return {w,l,n,p:w/n};
-}
-
-// 使用明確的場均得失分或總得失分。
-// 不把未知單位的 differential 當作總分差。
-parseTable=function(data){
- const output=new Map();
-
- function walk(node){
-  if(!node||typeof node!=="object")return;
-
-  if(Array.isArray(node)){
-   node.forEach(walk);
-   return;
-  }
-
-  for(const entry of node.entries||[]){
-   const team=entry.team||{};
-   const stats=entry.stats||[];
-
-   const w=numberStat(stats,["wins","w"]);
-   const l=numberStat(stats,["losses","l"]);
-
-   if(!team.id||w===null||l===null)continue;
-
-   const n=w+l;
-
-   const avgFor=numberStat(stats,[
-    "avgpointsfor"
-   ]);
-
-   const avgAgainst=numberStat(stats,[
-    "avgpointsagainst"
-   ]);
-
-   const totalFor=numberStat(stats,[
-    "pointsfor"
-   ]);
-
-   const totalAgainst=numberStat(stats,[
-    "pointsagainst"
-   ]);
-
-   let margin=null;
-
-   if(avgFor!==null&&avgAgainst!==null){
-    margin=avgFor-avgAgainst;
-   }else if(
-    n>0&&totalFor!==null&&
-    totalAgainst!==null
-   ){
-    margin=(totalFor-totalAgainst)/n;
-   }
-
-   output.set(String(team.id),{
-    w,l,n,
-    p:n?w/n:0.5,
-    margin,
-    recent:recentRecord(stats)
-   });
-  }
-
-  if(node.children)walk(node.children);
-  if(node.standings)walk(node.standings);
- }
-
- walk(data);
- return output;
-};
-
-// 獨贏模型加入最近十場戰績。
-// 係數仍屬研究假設，尚未完成校準。
-winModel=function(a,h){
- const ap=record(a,prevData);
- const hp=record(h,prevData);
-
- if(!ap||!hp||ap.n<20||hp.n<20)
-  return null;
-
- const ac=record(a,nowData);
- const hc=record(h,nowData);
-
- const away=blend(ap,ac,"p");
- const home=blend(hp,hc,"p");
-
- let logit=2.4*(home-away)+0.12;
-
- if(ac?.recent&&hc?.recent){
-  logit+=0.5*(
-   hc.recent.p-ac.recent.p
-  );
- }
-
- const p=1/(1+Math.exp(-logit));
-
- return {
-  home:p,
-  away:1-p
- };
-};
-
-})();
-</script>
-
-
-<script>
-/* Sports AI v1.5 - NBA Injury Information */
-(function(){
-
-const INJURY_API =
- "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
-
-let injuriesByTeam = new Map();
-let injuryMessage = "正在確認傷兵資訊";
-let injuryChecked = "";
-let injuryRequest = 0;
-
-function injuryText(v){
- return esc(String(v??""));
-}
-
-function injuryStatus(status){
- const s=String(status||"").toLowerCase();
-
- if(s==="out")return "缺陣";
- if(s==="questionable")return "出賽存疑";
- if(s==="doubtful")return "極可能缺陣";
- if(s==="probable")return "預計可出賽";
- if(s==="day-to-day")return "每日觀察";
- if(s==="active")return "可出賽";
-
- return status||"狀態未確認";
-}
-
-function parseInjuries(data){
- const result=new Map();
-
- if(!Array.isArray(data?.injuries)){
-  throw Error("傷兵資料格式不符");
- }
-
- for(const group of data.injuries){
-  const teamId=String(group.team?.id||"");
-  if(!teamId)continue;
-
-  const items=[];
-
-  for(const item of group.injuries||[]){
-   const athlete=item.athlete||{};
-
-   const player=String(
-    athlete.displayName||
-    athlete.fullName||""
-   ).trim();
-
-   const rawStatus=
-    typeof item.status==="object"?
-    (item.status?.name||item.status?.type||""):
-    (item.status||"");
-
-   if(!player)continue;
-
-   items.push({
-    player,
-    status:injuryStatus(rawStatus),
-    type:item.type?.description||
-         item.type?.name||""
-   });
-  }
-
-  result.set(teamId,items);
- }
-
- return result;
-}
-
-function injuryList(team){
- const id=String(team.team?.id||"");
-
- if(injuryMessage!=="已取得 ESPN 傷兵資料"){
-  return "<p>"+injuryText(injuryMessage)+"</p>";
- }
-
- if(!injuriesByTeam.has(id)){
-  return "<p>這支球隊的傷兵資料尚未確認</p>";
- }
-
- const list=injuriesByTeam.get(id);
-
- if(!list.length){
-  return "<p>來源目前沒有列出傷兵，" +
-   "不代表全隊都能出賽。</p>";
- }
-
- return list.slice(0,12).map(p=>
-  "<div style='margin:6px 0'>" +
-  "• "+injuryText(p.player)+
-  "｜"+injuryText(p.status)+
-  (p.type?"（"+injuryText(p.type)+"）":"")+
-  "</div>"
- ).join("");
-}
-
-const originalGameCard=gameCard;
-
-gameCard=function(g){
- let html=originalGameCard(g);
-
- const competitors=
-  g.competitions?.[0]?.competitors||[];
-
- const away=competitors.find(
-  x=>x.homeAway==="away"
- );
-
- const home=competitors.find(
-  x=>x.homeAway==="home"
- );
-
- if(!away||!home)return html;
-
- const extra=`
-  <div style="
-   border-top:1px solid #40516a;
-   margin-top:12px;padding-top:12px;
-   font-size:12px;line-height:1.8
-  ">
-   <b>🏥 傷兵資訊</b>
-
-   <div style="margin-top:8px">
-    <strong>${injuryText(teamName(away))}</strong>
-    ${injuryList(away)}
-   </div>
-
-   <div style="margin-top:8px">
-    <strong>${injuryText(teamName(home))}</strong>
-    ${injuryList(home)}
-   </div>
-
-   <div style="color:#aab8cd;margin-top:9px">
-    資料來源：ESPN<br>
-    檢查時間：${injuryText(injuryChecked||"尚未取得")}<br>
-    資料不等於 NBA 官方當場最終出賽名單。
-   </div>
-
-   <a
-    href="https://official.nba.com/nba-injury-report-2026-27-season/"
-    target="_blank"
-    rel="noopener noreferrer"
-    style="color:#ff7893"
-   >查看 NBA 官方傷兵報告</a>
-  </div>
- `;
-
- // 傷兵資料放在可展開的 AI 分析裡
- return html.replace(
-  "</details>",
-  extra+"</details>"
- );
-};
-
-async function updateInjuries(){
- const token=++injuryRequest;
-
- injuryMessage="正在確認傷兵資訊";
-
- try{
-  const response=await fetch(INJURY_API,{
-   cache:"no-store"
-  });
-
-  if(!response.ok){
-   throw Error("HTTP "+response.status);
-  }
-
-  const data=await response.json();
-  const parsed=parseInjuries(data);
-
-  if(token!==injuryRequest)return;
-
-  injuriesByTeam=parsed;
-  injuryMessage="已取得 ESPN 傷兵資料";
-
- }catch(error){
-  if(token!==injuryRequest)return;
-
-  injuriesByTeam=new Map();
-  injuryMessage="ESPN 傷兵資料暫時無法確認";
- }
-
- injuryChecked=new Intl.DateTimeFormat(
-  "zh-TW",{
-   timeZone:"Asia/Taipei",
-   month:"2-digit",day:"2-digit",
-   hour:"2-digit",minute:"2-digit",
-   hour12:false
-  }
- ).format(new Date());
-
- render();
-}
-
-// 開啟頁面時讀取
-updateInjuries();
-
-// 按更新按鈕時也重新讀取
-$("refresh").addEventListener(
- "click",updateInjuries
-);
-
-// App 開啟期間每五分鐘更新
-setInterval(()=>{
- if(!document.hidden)updateInjuries();
-},300000);
-
-document.addEventListener(
- "visibilitychange",()=>{
-  if(!document.hidden)updateInjuries();
- }
-);
-
-})();
-</script>
- 
-
-<script>
-/* Sports AI v1.5.1 Injury Diagnostic */
-(function(){
- const URL=
- "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
-
- let report="正在測試 ESPN 傷兵資料…";
-
- function show(){
-  document.querySelectorAll(
-   "details.analysis"
-  ).forEach(box=>{
-   let el=box.querySelector(".injury-debug");
-
-   if(!el){
-    el=document.createElement("div");
-    el.className="injury-debug";
-    el.style.cssText=
-     "margin-top:12px;padding:10px;"+
-     "border:1px solid #52627b;"+
-     "border-radius:9px;font-size:12px;"+
-     "line-height:1.8;color:#cad6e7";
-    box.appendChild(el);
-   }
-
-   el.textContent="🔎 傷兵診斷："+report;
-  });
- }
-
- const oldRender=render;
-
- render=function(){
-  oldRender();
-  show();
- };
-
- async function check(){
-  report="正在連線…";
-  show();
-
-  try{
-   const r=await fetch(URL,{
-    cache:"no-store"
-   });
-
-   if(!r.ok){
-    report="API 回應錯誤：HTTP "+r.status;
-    show();
-    return;
-   }
-
-   const data=await r.json();
-
-   const groups=Array.isArray(data.injuries)?
-    data.injuries:null;
-
-   if(!groups){
-    report="資料格式不同；頂層欄位："+ 
-     Object.keys(data).slice(0,8).join(", ");
-   }else{
-    const ids=groups.map(x=>
-     String(x.team?.id||"未知")
-    );
-
-    const count=groups.reduce(
-     (n,x)=>n+(x.injuries?.length||0),0
-    );
-
-    report=
-     "讀取成功；球隊組數："+groups.length+
-     "；球員筆數："+count+
-     "；來源球隊 ID："+ids.slice(0,30).join(",");
-   }
-
-  }catch(e){
-   report="連線或解析失敗："+e.message;
-  }
-
-  show();
- }
-
- $("refresh").addEventListener("click",check);
- check();
-})();
-</script>
-
- 
-<script>
-(async function(){
- try{
-  const url="https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
-  const res=await fetch(url,{cache:"no-store"});
-  const data=await res.json();
-  const group=data.injuries?.[0]||{};
-  const player=group.injuries?.[0]||{};
-
-  const info=[
-   "球隊欄位："+Object.keys(group).join(", "),
-   "球隊資料："+JSON.stringify(group).slice(0,250),
-   "球員欄位："+Object.keys(player).join(", ")
-  ].join("\n");
-
-  document.querySelectorAll("details.analysis").forEach(el=>{
-   const box=document.createElement("pre");
-   box.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;color:#fff";
-   box.textContent="🔍 詳細診斷\n"+info;
-   el.appendChild(box);
-  });
- }catch(e){
-  console.error("傷兵診斷失敗",e);
- }
-})();
-</script>
-
- 
-<script>
-/* Sports AI - 簡潔分析介面 */
-(function(){
- const previousRender=render;
-
- render=function(){
-  previousRender();
-
-  document.querySelectorAll(
-   "details.analysis"
-  ).forEach(box=>{
-   [...box.children].forEach(child=>{
-    if(
-     child.classList.contains("injury-debug") ||
-     child.tagName==="PRE" ||
-     child.textContent.includes("🏥 傷兵資訊")
-    ){
-     child.remove();
-    }
-   });
-  });
- };
-
- render();
-})();
-</script>
-
- 
 </body>
 </html>
+
+
+
