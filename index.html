@@ -627,5 +627,198 @@ render();
 </script>
 <!-- Sports AI v0.4 END -->
 
+
+<!-- Sports AI v0.5 近期戰績分析 -->
+<style>
+.form-v5{
+ margin-top:12px;
+ padding:14px;
+ background:#171f31;
+ border:1px solid #41445c;
+ border-radius:13px;
+}
+.form-v5 h4{margin:0 0 12px;color:#ff657e}
+.form-grid{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:9px;
+}
+.form-box{
+ background:#253047;
+ padding:12px;
+ border-radius:10px;
+ text-align:center;
+}
+.form-box strong{font-size:19px;display:block}
+.form-box small{font-size:11px;color:#b1bdd0}
+.form-info{font-size:12px;color:#c2ccda;line-height:1.9;margin-top:12px}
+</style>
+<script>
+(function(){
+"use strict";
+
+const ESPN_MONTH="https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?limit=500&dates=";
+const historyCache=new Map();
+let history=[];
+let historyState="正在載入近期比賽…";
+let historyRequest=0;
+
+function monthKeys(){
+ const date=selectedDate();
+ const [y,m]=date.split("-").map(Number);
+ return [0,1,2].map(n=>{
+  const d=new Date(Date.UTC(y,m-1-n,1));
+  return d.toISOString().slice(0,7).replace("-","");
+ });
+}
+
+async function monthGames(key){
+ if(historyCache.has(key))return historyCache.get(key);
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),12000);
+ try{
+  const r=await fetch(ESPN_MONTH+key,{signal:controller.signal});
+  if(!r.ok)throw Error("HTTP "+r.status);
+  const data=await r.json();
+  const items=data.events||[];
+  historyCache.set(key,items);
+  return items;
+ }finally{clearTimeout(timer)}
+}
+
+async function updateHistory(){
+ const id=++historyRequest;
+ historyState="正在更新近期數據…";
+ history=[];
+ render();
+
+ const results=await Promise.allSettled(
+  monthKeys().map(monthGames)
+ );
+ if(id!==historyRequest)return;
+
+ const map=new Map();
+ results.forEach(r=>{
+  if(r.status!=="fulfilled")return;
+  r.value.forEach(g=>{
+   if(g.id)map.set(g.id,g);
+  });
+ });
+ history=[...map.values()];
+ historyState=results.some(x=>x.status==="rejected")
+  ?"部分月份無法取得，近期統計可能不完整"
+  :"ESPN 已完成賽事統計";
+ render();
+}
+
+function formFor(game,teamID){
+ const target=new Date(game.date).getTime();
+ const items=[];
+
+ history.forEach(g=>{
+  if(new Date(g.date).getTime()>=target)return;
+  if(g.status?.type?.state!=="post")return;
+  if(g.season?.type&&g.season.type!==2)return;
+
+  const c=g.competitions?.[0]?.competitors||[];
+  const own=c.find(x=>String(x.team?.id)===String(teamID));
+  const other=c.find(x=>String(x.team?.id)!==String(teamID));
+  if(!own||!other)return;
+
+  const a=Number(own.score);
+  const b=Number(other.score);
+  if(!Number.isFinite(a)||!Number.isFinite(b))return;
+  if(a===b)return;
+
+  items.push({
+   time:new Date(g.date).getTime(),
+   win:a>b, scored:a,allowed:b,
+   home:own.homeAway==="home"
+  });
+ });
+
+ items.sort((a,b)=>b.time-a.time);
+ const last5=items.slice(0,5);
+ const last10=items.slice(0,10);
+
+ function summarize(list){
+  const wins=list.filter(x=>x.win).length;
+  return {n:list.length,wins,losses:list.length-wins};
+ }
+ const s5=summarize(last5);
+ const s10=summarize(last10);
+ const avg=(k)=>last5.length
+  ?(last5.reduce((n,x)=>n+x[k],0)/last5.length).toFixed(1)
+  :"—";
+ const home=items.filter(x=>x.home).slice(0,5);
+ const away=items.filter(x=>!x.home).slice(0,5);
+ const result=a=>a.length?a.filter(x=>x.win).length+"-"+a.filter(x=>!x.win).length:"—";
+
+ return {
+  s5,s10,scored:avg("scored"),allowed:avg("allowed"),
+  home:result(home),away:result(away)
+ };
+}
+
+const oldCardV5=card;
+
+card=function(e){
+ const html=oldCardV5(e);
+ if(!html)return html;
+
+ const teams=e.competitions?.[0]?.competitors||[];
+ const a=teams.find(x=>x.homeAway==="away");
+ const h=teams.find(x=>x.homeAway==="home");
+ if(!a||!h)return html;
+
+ if(historyState.startsWith("正在")){
+  return html.replace("</article>",
+   '<div class="form-v5"><h4>近期戰績</h4><div class="form-info">正在整理歷史賽事…</div></div></article>');
+ }
+
+ const A=formFor(e,a.team?.id);
+ const H=formFor(e,h.team?.id);
+
+ const cell=(x)=>`
+ <div class="form-box">
+  <strong>${x.s5.n?x.s5.wins+"-"+x.s5.losses:"資料不足"}</strong>
+  <small>近5場戰績（已取得${x.s5.n}場）</small>
+  <p>近10場：${x.s10.n?x.s10.wins+"-"+x.s10.losses:"—"}</p>
+  <p>得分：${x.scored}</p>
+  <p>失分：${x.allowed}</p>
+  <p>主場：${x.home}</p>
+  <p>客場：${x.away}</p>
+ </div>`;
+
+ const section=`
+ <div class="form-v5">
+  <h4>v0.5 近期表現比較</h4>
+  <div class="form-grid">
+   ${cell(A)}
+   ${cell(H)}
+  </div>
+  <div class="form-info">
+   左：${nameTW(a)}（客）｜右：${nameTW(h)}（主）<br>
+   ${historyState}<br>
+   只統計所取得、且早於本場比賽的已完賽結果。
+   主客場數字為各自最近最多5場。
+   最近5場與10場不足時使用實際取得場數，不補造數據。
+  </div>
+ </div>`;
+
+ return html.replace("</article>",section+"</article>");
+};
+
+const originalLoadV5=load;
+load=async function(){
+ await originalLoadV5();
+ await updateHistory();
+};
+
+updateHistory();
+})();
+</script>
+<!-- Sports AI v0.5 END -->
+
 </body>
 </html>
