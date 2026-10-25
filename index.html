@@ -1353,7 +1353,7 @@ btn.onclick=async()=>{
 
  function dates(){
   const list=[];
-  for(let d=new Date("2026-10-20T12:00:00Z");
+  let d=new Date("2026-10-01T12:00:00Z");
       d<=new Date("2026-10-25T12:00:00Z");
       d.setUTCDate(d.getUTCDate()+1)){
    list.push(dateKey(d));
@@ -1393,7 +1393,11 @@ btn.onclick=async()=>{
 
   for(const e of all.values()){
    if(e.status?.type?.state!=="post")
-    continue;
+ continue;
+
+// 只採用 NBA 例行賽
+if(Number(e.season?.type)!==2)
+ continue;
 
    const c=e.competitions?.[0];
    const teams=c?.competitors||[];
@@ -1618,7 +1622,11 @@ btn.onclick=async()=>{
    let missingLine=0;
 
    for(const g of events){
-    const calc=calculate(g,events,prior);
+ // 早期賽果只用來建立當時的球隊狀態
+ if(g.time<Date.parse("2026-10-20T00:00:00Z"))
+  continue;
+
+ const calc=calculate(g,events,prior);
     if(!calc)continue;
 
     winN++;
